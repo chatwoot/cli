@@ -53,11 +53,8 @@ type MessageConversation struct {
 }
 
 type MessagesListResponse struct {
-	Meta struct {
-		ContactLastSeenAt int64 `json:"contact_last_seen_at"`
-		AgentLastSeenAt   int64 `json:"agent_last_seen_at"`
-	} `json:"meta"`
-	Payload []Message `json:"payload"`
+	Meta    map[string]interface{} `json:"meta"`
+	Payload []Message              `json:"payload"`
 }
 
 func (s *MessagesService) List(beforeID int) (*MessagesListResponse, error) {

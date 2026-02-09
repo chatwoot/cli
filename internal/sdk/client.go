@@ -93,6 +93,24 @@ func (c *Client) Get(path string, params url.Values, v interface{}) error {
 	return c.do(req, v)
 }
 
+// GetRaw makes a GET request to a non-account-scoped path (e.g. /api/v1/profile).
+func (c *Client) GetRaw(path string, params url.Values, v interface{}) error {
+	fullURL := fmt.Sprintf("%s%s", c.BaseURL, path)
+	if len(params) > 0 {
+		fullURL = fmt.Sprintf("%s?%s", fullURL, params.Encode())
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fullURL, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("api_access_token", c.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	return c.do(req, v)
+}
+
 func (c *Client) Post(path string, body io.Reader, v interface{}) error {
 	req, err := c.request(http.MethodPost, path, body)
 	if err != nil {
@@ -133,4 +151,24 @@ func (c *Client) Messages(conversationID int) *MessagesService {
 // Labels returns the labels service for a conversation
 func (c *Client) Labels(conversationID int) *LabelsService {
 	return &LabelsService{client: c, conversationID: conversationID}
+}
+
+// Contacts returns the contacts service
+func (c *Client) Contacts() *ContactsService {
+	return &ContactsService{client: c}
+}
+
+// Inboxes returns the inboxes service
+func (c *Client) Inboxes() *InboxesService {
+	return &InboxesService{client: c}
+}
+
+// Agents returns the agents service
+func (c *Client) Agents() *AgentsService {
+	return &AgentsService{client: c}
+}
+
+// Profile returns the profile service
+func (c *Client) Profile() *ProfileService {
+	return &ProfileService{client: c}
 }

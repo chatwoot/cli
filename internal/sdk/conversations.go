@@ -81,6 +81,7 @@ type ListOptions struct {
 	Status       string
 	InboxID      int
 	AssigneeType string
+	TeamID       int
 	Page         int
 	Labels       []string
 	SortBy       string
@@ -97,6 +98,9 @@ func (s *ConversationsService) List(opts ListOptions) (*ConversationsListRespons
 	}
 	if opts.AssigneeType != "" {
 		params.Set("assignee_type", opts.AssigneeType)
+	}
+	if opts.TeamID > 0 {
+		params.Set("team_id", strconv.Itoa(opts.TeamID))
 	}
 	if opts.Page > 0 {
 		params.Set("page", strconv.Itoa(opts.Page))
