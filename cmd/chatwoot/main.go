@@ -7,23 +7,31 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/chatwoot/chatwoot-cli/internal/cmd"
+	"github.com/willabides/kongplete"
 )
 
 var version = "dev"
 
 func main() {
 	var cli cmd.CLI
-	ctx := kong.Parse(&cli,
+	parser := kong.Must(&cli,
 		kong.Name("chatwoot"),
 		kong.Description("Read-only CLI for Chatwoot."),
 		kong.Vars{"version": version},
 		kong.UsageOnError(),
 	)
 
+	// Enable shell completions (must be called before Parse)
+	kongplete.Complete(parser)
+
+	ctx, err := parser.Parse(os.Args[1:])
+	parser.FatalIfErrorf(err)
+
 	// Commands that don't require authentication
 	cmdStr := ctx.Command()
 	skipAuth := strings.HasPrefix(cmdStr, "auth") ||
-		strings.HasPrefix(cmdStr, "config")
+		strings.HasPrefix(cmdStr, "config") ||
+		strings.HasPrefix(cmdStr, "install-completions")
 
 	app, err := cmd.NewApp(&cli, skipAuth)
 	if err != nil {

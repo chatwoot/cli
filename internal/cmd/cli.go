@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/alecthomas/kong"
+import (
+	"github.com/alecthomas/kong"
+	"github.com/willabides/kongplete"
+)
 
 // CLI is the root Kong struct defining the entire command tree.
 type CLI struct {
@@ -10,14 +13,15 @@ type CLI struct {
 	NoColor bool   `help:"Disable colored output."`
 	Verbose bool   `short:"v" help:"Show request/response details."`
 
-	Conversation ConversationCmd `cmd:"" aliases:"conv" help:"List and view conversations."`
-	Message      MessageCmd      `cmd:"" aliases:"msg" help:"View messages in a conversation."`
-	Contact      ContactCmd      `cmd:"" help:"View and search contacts."`
-	Inbox        InboxCmd        `cmd:"" help:"List and view inboxes."`
-	Agent        AgentCmd        `cmd:"" help:"List agents."`
-	Profile      ProfileCmd      `cmd:"" help:"Show your profile."`
-	Auth         AuthCmd         `cmd:"" help:"Login, logout, and status."`
-	Config       ConfigCmd       `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
+	Conversation ConversationCmd            `cmd:"" aliases:"conv" help:"List and view conversations."`
+	Message      MessageCmd                 `cmd:"" aliases:"msg" help:"View messages in a conversation."`
+	Contact      ContactCmd                 `cmd:"" help:"View and search contacts."`
+	Inbox        InboxCmd                   `cmd:"" help:"List and view inboxes."`
+	Agent        AgentCmd                   `cmd:"" help:"List agents."`
+	Profile      ProfileCmd                 `cmd:"" help:"Show your profile."`
+	Auth         AuthCmd                    `cmd:"" help:"Login, logout, and status."`
+	Config       ConfigCmd                  `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
+	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions."`
 
 	Version kong.VersionFlag `help:"Show version."`
 }
