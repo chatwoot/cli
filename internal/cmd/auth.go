@@ -26,9 +26,12 @@ func (c *AuthLoginCmd) Run(app *App) error {
 	fmt.Println("Chatwoot CLI Login")
 	fmt.Println("==================")
 
-	fmt.Print("Base URL (e.g. https://app.chatwoot.com): ")
+	fmt.Print("Base URL (default: https://app.chatwoot.com): ")
 	baseURL, _ := reader.ReadString('\n')
 	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		baseURL = "https://app.chatwoot.com"
+	}
 
 	fmt.Print("API Key: ")
 	apiKey, _ := reader.ReadString('\n')
