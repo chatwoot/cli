@@ -14,17 +14,18 @@ type MessagesService struct {
 }
 
 type Message struct {
-	ID              int                    `json:"id"`
-	Content         string                 `json:"content"`
-	ContentType     string                 `json:"content_type"`
+	ID                int                    `json:"id"`
+	Content           string                 `json:"content"`
+	ContentType       string                 `json:"content_type"`
 	ContentAttributes map[string]interface{} `json:"content_attributes"`
-	MessageType     int                    `json:"message_type"`
-	CreatedAt       int64                  `json:"created_at"`
-	Private         bool                   `json:"private"`
-	SourceID        *string                `json:"source_id"`
-	Sender          *MessageSender         `json:"sender"`
-	Attachments     []Attachment           `json:"attachments"`
-	Conversation    *MessageConversation   `json:"conversation"`
+	MessageType       int                    `json:"message_type"`
+	Status            string                 `json:"status"`
+	CreatedAt         int64                  `json:"created_at"`
+	Private           bool                   `json:"private"`
+	SourceID          *string                `json:"source_id"`
+	Sender            *MessageSender         `json:"sender"`
+	Attachments       []Attachment           `json:"attachments"`
+	Conversation      *MessageConversation   `json:"conversation"`
 }
 
 type MessageSender struct {
