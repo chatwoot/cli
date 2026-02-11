@@ -63,10 +63,6 @@ var (
 			Foreground(colorAccent)
 )
 
-// Help bar
-var helpBarStyle = lipgloss.NewStyle().
-	Foreground(colorMuted)
-
 // Status dot
 func statusDot(status string) string {
 	var color lipgloss.AdaptiveColor

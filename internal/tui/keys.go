@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import (
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/lipgloss"
+)
 
 type keyMap struct {
 	Up      key.Binding
@@ -74,10 +77,19 @@ var keys = keyMap{
 }
 
 func helpText(hasSelection bool) string {
-	text := "↑↓ navigate  / filter  Tab mine/unassigned/all  s status  "
+	k := lipgloss.NewStyle().Foreground(colorAccent)
+	l := lipgloss.NewStyle().Foreground(colorMuted)
+
+	text := k.Render("↑↓") + l.Render(" navigate  ") +
+		k.Render("/") + l.Render(" filter  ") +
+		k.Render("Tab") + l.Render(" assignee  ") +
+		k.Render("s") + l.Render(" status  ")
 	if hasSelection {
-		text += "Ctrl+K actions  R reply  o open  "
+		text += k.Render("Ctrl+K") + l.Render(" actions  ") +
+			k.Render("R") + l.Render(" reply  ") +
+			k.Render("o") + l.Render(" open  ")
 	}
-	text += "r refresh  q quit"
-	return helpBarStyle.Render(text)
+	text += k.Render("r") + l.Render(" refresh  ") +
+		k.Render("q") + l.Render(" quit")
+	return text
 }
