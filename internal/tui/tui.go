@@ -21,6 +21,8 @@ type Model struct {
 	height int
 
 	convList       ConversationList
+	msgPane        MessagePane
+	activePane     int // 0=conversations, 1=messages
 	contact        *sdk.ContactFull
 	contactConvID  int // which conversation the contact was fetched for
 	loading        bool
@@ -38,6 +40,7 @@ func newModel(client *sdk.Client, accountID int, version string) Model {
 		accountID: accountID,
 		version:   version,
 		convList:  NewConversationList(),
+		msgPane:   NewMessagePane(),
 		spinner:   sp,
 		loading:   true,
 	}
@@ -115,8 +118,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		convW, _, _ := m.columnWidths()
+		convW, msgW, _ := m.columnWidths()
 		m.convList.SetSize(convW, m.bodyHeight())
+		m.msgPane.SetSize(msgW, m.bodyHeight())
 		return m, nil
 
 	case profileMsg:
@@ -134,6 +138,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = nil
 		m.convList.SetConversations(msg.conversations)
 		return m, m.fetchContactIfNeeded()
+
+	case messagesMsg:
+		if msg.err == nil {
+			m.msgPane.SetMessages(msg.conversationID, msg.messages)
+		}
+		return m, nil
 
 	case contactMsg:
 		if msg.err == nil && msg.contact != nil {
@@ -166,23 +176,51 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Global keys (work in any pane)
 	switch {
 	case matchKey(msg, keys.Quit):
 		return m, tea.Quit
-
 	case matchKey(msg, keys.Refresh):
 		m.loading = true
 		return m, tea.Batch(m.fetchCmd(), m.spinner.Tick)
+	}
 
+	// Message pane focused
+	if m.activePane == 1 {
+		switch {
+		case matchKey(msg, keys.Back):
+			m.activePane = 0
+			return m, nil
+		case matchKey(msg, keys.Up):
+			m.msgPane.ScrollUp()
+			return m, nil
+		case matchKey(msg, keys.Down):
+			m.msgPane.ScrollDown()
+			return m, nil
+		}
+		return m, nil
+	}
+
+	// Conversation list focused
+	switch {
 	case matchKey(msg, keys.Tab):
 		m.convList.CycleTab()
 		m.loading = true
+		m.msgPane.Clear()
 		return m, tea.Batch(m.fetchCmd(), m.spinner.Tick)
 
 	case matchKey(msg, keys.Status):
 		m.convList.CycleStatus()
 		m.loading = true
+		m.msgPane.Clear()
 		return m, tea.Batch(m.fetchCmd(), m.spinner.Tick)
+
+	case matchKey(msg, keys.Select):
+		sel := m.convList.Selected()
+		if sel != nil {
+			m.activePane = 1
+			return m, fetchMessages(m.client, sel.ID)
+		}
 
 	case matchKey(msg, keys.Filter):
 		m.convList.StartFilter()
@@ -190,9 +228,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case matchKey(msg, keys.Up):
 		m.convList.MoveUp()
+		m.msgPane.Clear()
 		return m, m.fetchContactIfNeeded()
 	case matchKey(msg, keys.Down):
 		m.convList.MoveDown()
+		m.msgPane.Clear()
 		return m, m.fetchContactIfNeeded()
 	}
 
@@ -204,8 +244,9 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
-	// Content width for header/footer = total width - border(2) - padding(2)
-	barContentW := m.width - 4
+	// lipgloss Width() includes padding but excludes border.
+	// Visual width = Width + border(2). So Width = m.width - 2.
+	barContentW := m.width - 2
 	if barContentW < 1 {
 		barContentW = 1
 	}
@@ -241,16 +282,20 @@ func (m Model) View() string {
 	// Conversation list column
 	m.convList.SetSize(convW, bodyH)
 	convContent := m.convList.View()
-	convCol := activeColumnStyle.Width(convW).Height(bodyH).Render(convContent)
+	convStyle := columnStyle
+	if m.activePane == 0 {
+		convStyle = activeColumnStyle
+	}
+	convCol := convStyle.Width(convW).Height(bodyH).Render(convContent)
 
-	// Messages column (placeholder)
-	msgPlaceholder := lipgloss.NewStyle().
-		Foreground(colorMuted).
-		Width(msgW).
-		Height(bodyH).
-		Align(lipgloss.Center, lipgloss.Center).
-		Render("Messages")
-	msgCol := columnStyle.Width(msgW).Height(bodyH).Render(msgPlaceholder)
+	// Messages column
+	m.msgPane.SetSize(msgW, bodyH)
+	msgContent := m.msgPane.View()
+	msgStyle := columnStyle
+	if m.activePane == 1 {
+		msgStyle = activeColumnStyle
+	}
+	msgCol := msgStyle.Width(msgW).Height(bodyH).Render(msgContent)
 
 	var body string
 	if infoW > 0 {
