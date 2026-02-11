@@ -1,0 +1,11 @@
+[tools]
+go = "latest"
+watchexec = "latest"
+
+[tasks.build]
+description = "Build the CLI"
+run = "go build ./cmd/chatwoot/"
+
+[tasks.dev]
+description = "Auto-build on Go file changes"
+run = "watchexec -e go -- go build ./cmd/chatwoot/"
