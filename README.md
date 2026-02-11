@@ -2,6 +2,8 @@
 
 Read-only CLI for interacting with a [Chatwoot](https://www.chatwoot.com) instance from the terminal.
 
+![chatwoot-cli](.github/chatwoot-cli.webp)
+
 ## Install
 
 ```bash
