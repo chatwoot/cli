@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	assigneeTabs   = []string{"mine", "unassigned", "all"}
+	assigneeTabs   = []string{"me", "unassigned", "all"}
 	tabLabels      = []string{"Mine", "Unassigned", "All"}
 	statusOptions  = []string{"open", "resolved", "pending", "snoozed"}
 	statusLabels   = []string{"Open", "Resolved", "Pending", "Snoozed"}
@@ -187,8 +187,8 @@ func (c *ConversationList) View() string {
 		}
 	}
 	tabLine := lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
-	// Status indicator on the right
-	statusLabel := lipgloss.NewStyle().Foreground(colorMuted).Render("  Status: ") +
+	// Status indicator: just dot + label, no "Status:" prefix
+	statusLabel := " " + statusDot(statusOptions[c.statusIndex]) + " " +
 		lipgloss.NewStyle().Bold(true).Render(statusLabels[c.statusIndex])
 	b.WriteString(tabLine + statusLabel)
 	b.WriteString("\n")
