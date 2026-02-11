@@ -21,7 +21,8 @@ type ContactFull struct {
 	LastActivityAt   int64                  `json:"last_activity_at"`
 	CreatedAt        int64                  `json:"created_at"`
 	ConversationsCount int                  `json:"conversations_count,omitempty"`
-	CustomAttributes map[string]interface{} `json:"custom_attributes"`
+	CustomAttributes     map[string]interface{} `json:"custom_attributes"`
+	AdditionalAttributes map[string]interface{} `json:"additional_attributes"`
 }
 
 type ContactsListResponse struct {
