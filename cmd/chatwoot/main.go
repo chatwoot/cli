@@ -7,12 +7,34 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/chatwoot/chatwoot-cli/internal/cmd"
+	"github.com/chatwoot/chatwoot-cli/internal/config"
+	"github.com/chatwoot/chatwoot-cli/internal/sdk"
+	"github.com/chatwoot/chatwoot-cli/internal/tui"
 	"github.com/willabides/kongplete"
 )
 
 var version = "dev"
 
 func main() {
+	// No args → launch interactive TUI
+	if len(os.Args) == 1 {
+		cfg, err := config.Load()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		if cfg == nil || !cfg.IsValid() {
+			fmt.Fprintln(os.Stderr, "Not authenticated. Run: chatwoot auth login")
+			os.Exit(1)
+		}
+		client := sdk.NewClient(cfg.BaseURL, cfg.APIKey, cfg.AccountID)
+		if err := tui.Run(client, cfg.AccountID, version); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	var cli cmd.CLI
 	parser := kong.Must(&cli,
 		kong.Name("chatwoot"),
