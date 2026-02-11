@@ -9,3 +9,13 @@ run = "go build ./cmd/chatwoot/"
 [tasks.dev]
 description = "Auto-build on Go file changes"
 run = "watchexec -e go --restart --debounce 300 -- go build ./cmd/chatwoot/"
+
+[tasks.agents]
+description = "Create AGENTS.md symlinks to CLAUDE.md in all module directories"
+run = """
+find . -name "CLAUDE.md" -type f | while read file; do
+  dir=$(dirname "$file")
+  ln -sf CLAUDE.md "$dir/AGENTS.md"
+  echo "Created symlink: $dir/AGENTS.md -> CLAUDE.md"
+done
+"""
