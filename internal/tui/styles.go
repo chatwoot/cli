@@ -13,8 +13,10 @@ var (
 	colorAccent    = lipgloss.AdaptiveColor{Light: "#1a73e8", Dark: "#8ab4f8"}
 	colorMuted     = lipgloss.AdaptiveColor{Light: "#666666", Dark: "#888888"}
 	colorBorder    = lipgloss.AdaptiveColor{Light: "#cccccc", Dark: "#444444"}
-	colorActiveBdr = lipgloss.AdaptiveColor{Light: "#1a73e8", Dark: "#8ab4f8"}
+	colorActiveBdr = lipgloss.AdaptiveColor{Light: "#5a9bd5", Dark: "#4a6f8a"}
 	colorSelected  = lipgloss.AdaptiveColor{Light: "#e8f0fe", Dark: "#1e3a5f"}
+	colorOutgoing  = lipgloss.AdaptiveColor{Light: "#a8c7fa", Dark: "#3d5a80"}
+	colorPrivate   = lipgloss.AdaptiveColor{Light: "#b5851e", Dark: "#8a6d3b"}
 
 	colorOpen     = lipgloss.AdaptiveColor{Light: "#0d8043", Dark: "#34a853"}
 	colorResolved = lipgloss.AdaptiveColor{Light: "#1967d2", Dark: "#669df6"}
