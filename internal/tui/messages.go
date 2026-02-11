@@ -83,11 +83,12 @@ func (p *MessagePane) countLines() int {
 // CRITICAL: output is strictly bounded to p.height lines to prevent overflow.
 func (p *MessagePane) View() string {
 	if !p.loaded {
+		logo := lipgloss.NewStyle().Foreground(lipgloss.Color("#1f93ff")).Render(chatwootLogo)
+		hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Press Enter to load messages")
 		return lipgloss.NewStyle().
-			Foreground(colorMuted).
 			Width(p.width).Height(p.height).
 			Align(lipgloss.Center, lipgloss.Center).
-			Render("Press Enter to load messages")
+			Render(logo + "\n\n" + hint)
 	}
 
 	if len(p.messages) == 0 {

@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	_ "embed"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Pane widths (content width, not including borders)
 const (
@@ -86,3 +90,8 @@ var spinnerStyle = lipgloss.NewStyle().Foreground(colorAccent)
 
 // Error style
 var errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
+
+// Chatwoot logo (speech bubble) — loaded from logo.txt at compile time via embed
+//
+//go:embed logo.txt
+var chatwootLogo string
