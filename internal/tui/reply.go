@@ -8,11 +8,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ReplyEditor is a floating modal for composing replies.
+// ReplyEditor is a floating modal for composing replies and private notes.
 type ReplyEditor struct {
 	textarea       textarea.Model
 	active         bool
 	sending        bool
+	private        bool
 	conversationID int
 	contactName    string
 }
@@ -21,9 +22,13 @@ func NewReplyEditor() ReplyEditor {
 	return ReplyEditor{}
 }
 
-func (r *ReplyEditor) Open(convID int, contactName string, width, height int) tea.Cmd {
+func (r *ReplyEditor) Open(convID int, contactName string, private bool, width, height int) tea.Cmd {
+	placeholder := "Type your reply..."
+	if private {
+		placeholder = "Type your note..."
+	}
 	ta := textarea.New()
-	ta.Placeholder = "Type your reply..."
+	ta.Placeholder = placeholder
 	ta.CharLimit = 0
 	ta.ShowLineNumbers = false
 
@@ -49,6 +54,7 @@ func (r *ReplyEditor) Open(convID int, contactName string, width, height int) te
 	r.textarea = ta
 	r.active = true
 	r.sending = false
+	r.private = private
 	r.conversationID = convID
 	r.contactName = contactName
 	return textarea.Blink
@@ -75,6 +81,10 @@ func (r *ReplyEditor) Value() string {
 	return r.textarea.Value()
 }
 
+func (r *ReplyEditor) IsPrivate() bool {
+	return r.private
+}
+
 func (r *ReplyEditor) ConversationID() int {
 	return r.conversationID
 }
@@ -91,8 +101,14 @@ func (r *ReplyEditor) View(termW int) string {
 		boxContentW = 30
 	}
 
-	header := lipgloss.NewStyle().Bold(true).Foreground(colorAccent).
-		Render(fmt.Sprintf("Replying to %s - #%d", r.contactName, r.conversationID))
+	accentColor := colorAccent
+	headerText := fmt.Sprintf("Replying to %s - #%d", r.contactName, r.conversationID)
+	if r.private {
+		accentColor = colorPrivate
+		headerText = fmt.Sprintf("Private note - #%d", r.conversationID)
+	}
+
+	header := lipgloss.NewStyle().Bold(true).Foreground(accentColor).Render(headerText)
 
 	var footer string
 	if r.sending {
@@ -105,7 +121,7 @@ func (r *ReplyEditor) View(termW int) string {
 
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(colorAccent).
+		BorderForeground(accentColor).
 		Padding(1, 2).
 		Width(boxContentW).
 		Render(content)

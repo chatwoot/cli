@@ -16,6 +16,7 @@ type keyMap struct {
 	Refresh key.Binding
 	Open    key.Binding
 	Reply   key.Binding
+	Note    key.Binding
 	Palette key.Binding
 	Help    key.Binding
 	Quit    key.Binding
@@ -62,6 +63,10 @@ var keys = keyMap{
 		key.WithKeys("R"),
 		key.WithHelp("R", "reply"),
 	),
+	Note: key.NewBinding(
+		key.WithKeys("P"),
+		key.WithHelp("P", "note"),
+	),
 	Palette: key.NewBinding(
 		key.WithKeys("ctrl+k"),
 		key.WithHelp("Ctrl+K", "actions"),
@@ -87,6 +92,7 @@ func helpText(hasSelection bool) string {
 	if hasSelection {
 		text += k.Render("Ctrl+K") + l.Render(" actions  ") +
 			k.Render("R") + l.Render(" reply  ") +
+			k.Render("P") + l.Render(" note  ") +
 			k.Render("o") + l.Render(" open  ")
 	}
 	text += k.Render("r") + l.Render(" refresh  ") +

@@ -248,13 +248,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case matchKey(msg, keys.Back):
 			m.activePane = 0
 			return m, nil
-		case matchKey(msg, keys.Reply):
+		case matchKey(msg, keys.Reply), matchKey(msg, keys.Note):
 			if sel := m.convList.Selected(); sel != nil {
+				private := matchKey(msg, keys.Note)
 				name := "Unknown"
 				if sel.Meta.Sender != nil && sel.Meta.Sender.Name != "" {
 					name = sel.Meta.Sender.Name
 				}
-				cmd := m.reply.Open(sel.ID, name, m.width, m.height)
+				cmd := m.reply.Open(sel.ID, name, private, m.width, m.height)
 				return m, cmd
 			}
 			return m, nil
@@ -324,7 +325,7 @@ func (m Model) handleReplyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.reply.SetSending()
-		return m, sendMessage(m.client, m.reply.ConversationID(), content)
+		return m, sendMessage(m.client, m.reply.ConversationID(), content, m.reply.IsPrivate())
 	}
 
 	// Pass all other keys to the textarea

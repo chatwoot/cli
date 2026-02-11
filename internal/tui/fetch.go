@@ -105,9 +105,9 @@ func toggleStatus(client *sdk.Client, convID int, status string, snoozedUntil *i
 	}
 }
 
-func sendMessage(client *sdk.Client, convID int, content string) tea.Cmd {
+func sendMessage(client *sdk.Client, convID int, content string, private bool) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.Messages(convID).Create(content, false)
+		_, err := client.Messages(convID).Create(content, private)
 		return replyMsg{conversationID: convID, err: err}
 	}
 }
