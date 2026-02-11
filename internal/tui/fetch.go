@@ -68,6 +68,7 @@ func fetchConversations(client *sdk.Client, status, assigneeType string, page in
 	}
 }
 
+// TODO: paginate messages using beforeID to load older messages on scroll
 func fetchMessages(client *sdk.Client, convID int) tea.Cmd {
 	return func() tea.Msg {
 		resp, err := client.Messages(convID).List(0)

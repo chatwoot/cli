@@ -31,7 +31,7 @@ func (p *MessagePane) SetMessages(convID int, msgs []sdk.Message) {
 	p.conversationID = convID
 	p.messages = msgs
 	p.loaded = true
-	p.scrollOffset = 0
+	p.scrollToBottom()
 }
 
 func (p *MessagePane) Clear() {
@@ -47,6 +47,15 @@ func (p *MessagePane) IsLoaded() bool {
 
 func (p *MessagePane) ConversationID() int {
 	return p.conversationID
+}
+
+func (p *MessagePane) scrollToBottom() {
+	total := p.countLines()
+	if total > p.height {
+		p.scrollOffset = total - p.height
+	} else {
+		p.scrollOffset = 0
+	}
 }
 
 func (p *MessagePane) ScrollUp() {
