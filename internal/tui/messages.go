@@ -11,11 +11,14 @@ import (
 // MessagePane renders the messages for the selected conversation.
 // Messages are only loaded when the user presses Enter.
 type MessagePane struct {
-	messages       []sdk.Message
-	conversationID int // which conversation messages belong to
-	loaded         bool
-	width, height  int
-	scrollOffset   int
+	messages         []sdk.Message
+	conversationID   int // which conversation messages belong to
+	loaded           bool
+	loadingMore      bool
+	hasMoreMessages  bool
+	oldestMessageID  int
+	width, height    int
+	scrollOffset     int
 }
 
 func NewMessagePane() MessagePane {
@@ -31,6 +34,17 @@ func (p *MessagePane) SetMessages(convID int, msgs []sdk.Message) {
 	p.conversationID = convID
 	p.messages = msgs
 	p.loaded = true
+	p.loadingMore = false
+
+	// Track oldest message ID for pagination
+	if len(msgs) > 0 {
+		p.oldestMessageID = msgs[0].ID
+		// Assume more messages if we got a full page (20+)
+		p.hasMoreMessages = len(msgs) >= 20
+	} else {
+		p.hasMoreMessages = false
+	}
+
 	p.scrollToBottom()
 }
 
@@ -47,6 +61,39 @@ func (p *MessagePane) IsLoaded() bool {
 
 func (p *MessagePane) ConversationID() int {
 	return p.conversationID
+}
+
+func (p *MessagePane) PrependMessages(msgs []sdk.Message) {
+	if len(msgs) == 0 {
+		p.hasMoreMessages = false
+		p.loadingMore = false
+		return
+	}
+
+	// Calculate current scroll position in lines before prepending
+	linesBefore := p.countLines()
+
+	// Prepend older messages
+	p.messages = append(msgs, p.messages...)
+	p.oldestMessageID = msgs[0].ID
+	p.hasMoreMessages = len(msgs) >= 20
+	p.loadingMore = false
+
+	// Adjust scroll offset to maintain visual position
+	linesAfter := p.countLines()
+	p.scrollOffset += linesAfter - linesBefore
+}
+
+func (p *MessagePane) ShouldLoadMore() bool {
+	return p.loaded && !p.loadingMore && p.hasMoreMessages && p.scrollOffset < 10
+}
+
+func (p *MessagePane) OldestMessageID() int {
+	return p.oldestMessageID
+}
+
+func (p *MessagePane) SetLoadingMore() {
+	p.loadingMore = true
 }
 
 func (p *MessagePane) scrollToBottom() {

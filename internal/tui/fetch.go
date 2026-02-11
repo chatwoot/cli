@@ -17,6 +17,7 @@ type conversationsMsg struct {
 type messagesMsg struct {
 	conversationID int
 	messages       []sdk.Message
+	prepend        bool // true when loading older messages via pagination
 	err            error
 }
 
@@ -81,7 +82,17 @@ func fetchMessages(client *sdk.Client, convID int) tea.Cmd {
 		if err != nil {
 			return messagesMsg{conversationID: convID, err: err}
 		}
-		return messagesMsg{conversationID: convID, messages: resp.Payload}
+		return messagesMsg{conversationID: convID, messages: resp.Payload, prepend: false}
+	}
+}
+
+func fetchMoreMessages(client *sdk.Client, convID, beforeID int) tea.Cmd {
+	return func() tea.Msg {
+		resp, err := client.Messages(convID).List(beforeID)
+		if err != nil {
+			return messagesMsg{conversationID: convID, err: err, prepend: true}
+		}
+		return messagesMsg{conversationID: convID, messages: resp.Payload, prepend: true}
 	}
 }
 

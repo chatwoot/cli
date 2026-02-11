@@ -147,7 +147,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case messagesMsg:
 		if msg.err == nil {
-			m.msgPane.SetMessages(msg.conversationID, msg.messages)
+			if msg.prepend {
+				m.msgPane.PrependMessages(msg.messages)
+			} else {
+				m.msgPane.SetMessages(msg.conversationID, msg.messages)
+			}
 		}
 		return m, nil
 
@@ -261,6 +265,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case matchKey(msg, keys.Up):
 			m.msgPane.ScrollUp()
+			// Load more messages if scrolled near top
+			if m.msgPane.ShouldLoadMore() {
+				m.msgPane.SetLoadingMore()
+				return m, fetchMoreMessages(m.client, m.msgPane.ConversationID(), m.msgPane.OldestMessageID())
+			}
 			return m, nil
 		case matchKey(msg, keys.Down):
 			m.msgPane.ScrollDown()
