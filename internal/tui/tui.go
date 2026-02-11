@@ -25,6 +25,7 @@ type Model struct {
 	convList       ConversationList
 	msgPane        MessagePane
 	reply          ReplyEditor
+	palette        Palette
 	activePane     int // 0=conversations, 1=messages
 	contact        *sdk.ContactFull
 	contactConvID  int // which conversation the contact was fetched for
@@ -45,6 +46,7 @@ func newModel(client *sdk.Client, accountID int, version string) Model {
 		convList:  NewConversationList(),
 		msgPane:   NewMessagePane(),
 		reply:     NewReplyEditor(),
+		palette:   NewPalette(),
 		spinner:   sp,
 		loading:   true,
 	}
@@ -158,6 +160,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case toggleStatusMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		// Refresh conversations to reflect the status change
+		m.loading = true
+		m.msgPane.Clear()
+		return m, tea.Batch(m.fetchCmd(), m.spinner.Tick)
+
 	case replyMsg:
 		m.reply.Close()
 		if msg.err != nil {
@@ -183,12 +195,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.reply.IsActive() {
 			return m.handleReplyKey(msg)
 		}
+		if m.palette.IsActive() {
+			return m.handlePaletteKey(msg)
+		}
 		return m.handleKey(msg)
 	}
 
-	// Forward unhandled messages to reply editor (cursor blink, etc.)
+	// Forward unhandled messages to active overlay (cursor blink, etc.)
 	if m.reply.IsActive() {
 		cmd := m.reply.Update(msg)
+		return m, cmd
+	}
+	if m.palette.IsActive() {
+		cmd := m.palette.Update(msg)
 		return m, cmd
 	}
 
@@ -213,6 +232,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			url := fmt.Sprintf("%s/app/accounts/%d/conversations/%d",
 				m.client.BaseURL, m.accountID, sel.ID)
 			openBrowser(url)
+		}
+		return m, nil
+	case matchKey(msg, keys.Palette):
+		if sel := m.convList.Selected(); sel != nil {
+			cmd := m.palette.Open(sel.ID, sel.Status)
+			return m, cmd
 		}
 		return m, nil
 	}
@@ -290,6 +315,8 @@ func (m Model) handleReplyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.reply.Close()
 		return m, nil
+	case "ctrl+c":
+		return m, tea.Quit
 	case "ctrl+s":
 		content := strings.TrimSpace(m.reply.Value())
 		if content == "" {
@@ -302,6 +329,50 @@ func (m Model) handleReplyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Pass all other keys to the textarea
 	cmd := m.reply.Update(msg)
+	return m, cmd
+}
+
+func (m Model) handlePaletteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.palette.Close()
+		return m, nil
+	case "ctrl+c":
+		return m, tea.Quit
+	case "up":
+		m.palette.MoveUp()
+		return m, nil
+	case "down":
+		m.palette.MoveDown()
+		return m, nil
+	case "enter":
+		action := m.palette.Selected()
+		if action == nil {
+			m.palette.Close()
+			return m, nil
+		}
+		m.palette.Close()
+		switch action.Action {
+		case "toggle_status":
+			return m, toggleStatus(m.client, m.palette.ConvID(), action.Status, action.SnoozedUntil)
+		case "open_browser":
+			if sel := m.convList.Selected(); sel != nil {
+				url := fmt.Sprintf("%s/app/accounts/%d/conversations/%d",
+					m.client.BaseURL, m.accountID, sel.ID)
+				openBrowser(url)
+			}
+			return m, nil
+		case "refresh":
+			m.loading = true
+			return m, tea.Batch(m.fetchCmd(), m.spinner.Tick)
+		case "quit":
+			return m, tea.Quit
+		}
+		return m, nil
+	}
+
+	// Pass all other keys to the text input for fuzzy filtering
+	cmd := m.palette.Update(msg)
 	return m, cmd
 }
 
@@ -379,6 +450,10 @@ func (m Model) View() string {
 
 	if m.reply.IsActive() {
 		return overlayCenter(view, m.reply.View(m.width), m.width, m.height)
+	}
+
+	if m.palette.IsActive() {
+		return overlayCenter(view, m.palette.View(m.width), m.width, m.height)
 	}
 
 	return view

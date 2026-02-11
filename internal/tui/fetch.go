@@ -35,6 +35,12 @@ type replyMsg struct {
 	err            error
 }
 
+type toggleStatusMsg struct {
+	conversationID int
+	newStatus      string
+	err            error
+}
+
 type tickMsg time.Time
 
 type errMsg struct{ err error }
@@ -86,6 +92,16 @@ func fetchContact(client *sdk.Client, contactID int) tea.Cmd {
 			return contactMsg{err: err}
 		}
 		return contactMsg{contact: contact}
+	}
+}
+
+func toggleStatus(client *sdk.Client, convID int, status string, snoozedUntil *int64) tea.Cmd {
+	return func() tea.Msg {
+		resp, err := client.Conversations().ToggleStatus(convID, status, snoozedUntil)
+		if err != nil {
+			return toggleStatusMsg{conversationID: convID, err: err}
+		}
+		return toggleStatusMsg{conversationID: convID, newStatus: resp.CurrentStatus}
 	}
 }
 

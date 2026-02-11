@@ -13,6 +13,7 @@ type keyMap struct {
 	Refresh key.Binding
 	Open    key.Binding
 	Reply   key.Binding
+	Palette key.Binding
 	Help    key.Binding
 	Quit    key.Binding
 }
@@ -58,6 +59,10 @@ var keys = keyMap{
 		key.WithKeys("R"),
 		key.WithHelp("R", "reply"),
 	),
+	Palette: key.NewBinding(
+		key.WithKeys("ctrl+k"),
+		key.WithHelp("Ctrl+K", "actions"),
+	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
 		key.WithHelp("?", "help"),
@@ -71,7 +76,7 @@ var keys = keyMap{
 func helpText(hasSelection bool) string {
 	text := "↑↓ navigate  / filter  Tab mine/unassigned/all  s status  "
 	if hasSelection {
-		text += "R reply  o open  "
+		text += "Ctrl+K actions  R reply  o open  "
 	}
 	text += "r refresh  q quit"
 	return helpBarStyle.Render(text)
