@@ -149,12 +149,10 @@ func (p *MessagePane) renderMessage(msg sdk.Message) []string {
 	ts := formatTime(msg.CreatedAt)
 	statusIcon := msgStatus(msg.Status, msg.MessageType)
 
-	// Content: collapse newlines, truncate to fit box
-	content := strings.ReplaceAll(msg.Content, "\n", " ")
+	content := strings.TrimSpace(msg.Content)
 	if content == "" {
 		content = "(no content)"
 	}
-	content = truncate(content, textW)
 
 	// Metadata line below box: [sender ·] #ID · time [· status]
 	// Skip sender for incoming messages (type 0) — visible in info pane
