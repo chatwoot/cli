@@ -30,6 +30,11 @@ type profileMsg struct {
 	err  error
 }
 
+type replyMsg struct {
+	conversationID int
+	err            error
+}
+
 type tickMsg time.Time
 
 type errMsg struct{ err error }
@@ -80,6 +85,13 @@ func fetchContact(client *sdk.Client, contactID int) tea.Cmd {
 			return contactMsg{err: err}
 		}
 		return contactMsg{contact: contact}
+	}
+}
+
+func sendMessage(client *sdk.Client, convID int, content string) tea.Cmd {
+	return func() tea.Msg {
+		_, err := client.Messages(convID).Create(content, false)
+		return replyMsg{conversationID: convID, err: err}
 	}
 }
 

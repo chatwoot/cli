@@ -12,6 +12,7 @@ type keyMap struct {
 	Status  key.Binding
 	Refresh key.Binding
 	Open    key.Binding
+	Reply   key.Binding
 	Help    key.Binding
 	Quit    key.Binding
 }
@@ -53,6 +54,10 @@ var keys = keyMap{
 		key.WithKeys("o"),
 		key.WithHelp("o", "open in browser"),
 	),
+	Reply: key.NewBinding(
+		key.WithKeys("R"),
+		key.WithHelp("R", "reply"),
+	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
 		key.WithHelp("?", "help"),
@@ -66,7 +71,7 @@ var keys = keyMap{
 func helpText(hasSelection bool) string {
 	text := "↑↓ navigate  / filter  Tab mine/unassigned/all  s status  "
 	if hasSelection {
-		text += "o open  "
+		text += "R reply  o open  "
 	}
 	text += "r refresh  q quit"
 	return helpBarStyle.Render(text)

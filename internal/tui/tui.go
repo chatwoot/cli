@@ -24,6 +24,7 @@ type Model struct {
 
 	convList       ConversationList
 	msgPane        MessagePane
+	reply          ReplyEditor
 	activePane     int // 0=conversations, 1=messages
 	contact        *sdk.ContactFull
 	contactConvID  int // which conversation the contact was fetched for
@@ -43,6 +44,7 @@ func newModel(client *sdk.Client, accountID int, version string) Model {
 		version:   version,
 		convList:  NewConversationList(),
 		msgPane:   NewMessagePane(),
+		reply:     NewReplyEditor(),
 		spinner:   sp,
 		loading:   true,
 	}
@@ -156,7 +158,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case replyMsg:
+		m.reply.Close()
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		// Reload messages after successful send
+		return m, fetchMessages(m.client, msg.conversationID)
+
 	case tickMsg:
+		if m.reply.IsActive() {
+			return m, nil // don't auto-refresh while composing
+		}
 		m.loading = true
 		return m, tea.Batch(m.fetchCmd(), autoRefreshTick(), m.spinner.Tick)
 
@@ -166,7 +180,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case tea.KeyMsg:
+		if m.reply.IsActive() {
+			return m.handleReplyKey(msg)
+		}
 		return m.handleKey(msg)
+	}
+
+	// Forward unhandled messages to reply editor (cursor blink, etc.)
+	if m.reply.IsActive() {
+		cmd := m.reply.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
@@ -199,6 +222,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch {
 		case matchKey(msg, keys.Back):
 			m.activePane = 0
+			return m, nil
+		case matchKey(msg, keys.Reply):
+			if sel := m.convList.Selected(); sel != nil {
+				name := "Unknown"
+				if sel.Meta.Sender != nil && sel.Meta.Sender.Name != "" {
+					name = sel.Meta.Sender.Name
+				}
+				cmd := m.reply.Open(sel.ID, name, m.width, m.height)
+				return m, cmd
+			}
 			return m, nil
 		case matchKey(msg, keys.Up):
 			m.msgPane.ScrollUp()
@@ -246,6 +279,30 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m Model) handleReplyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.reply.IsSending() {
+		return m, nil // ignore keys while sending
+	}
+
+	switch msg.String() {
+	case "esc":
+		m.reply.Close()
+		return m, nil
+	case "ctrl+s":
+		content := strings.TrimSpace(m.reply.Value())
+		if content == "" {
+			m.reply.Close()
+			return m, nil
+		}
+		m.reply.SetSending()
+		return m, sendMessage(m.client, m.reply.ConversationID(), content)
+	}
+
+	// Pass all other keys to the textarea
+	cmd := m.reply.Update(msg)
+	return m, cmd
 }
 
 func (m Model) View() string {
@@ -318,7 +375,13 @@ func (m Model) View() string {
 	// === Footer ===
 	footer := barStyle.Width(barContentW).Render(helpText(m.convList.Selected() != nil))
 
-	return header + "\n" + body + "\n" + footer
+	view := header + "\n" + body + "\n" + footer
+
+	if m.reply.IsActive() {
+		return m.reply.View(m.width, m.height)
+	}
+
+	return view
 }
 
 func (m Model) renderInfo(w, h int) string {
