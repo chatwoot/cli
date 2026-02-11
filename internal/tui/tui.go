@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -183,6 +185,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case matchKey(msg, keys.Refresh):
 		m.loading = true
 		return m, tea.Batch(m.fetchCmd(), m.spinner.Tick)
+	case matchKey(msg, keys.Open):
+		if sel := m.convList.Selected(); sel != nil {
+			url := fmt.Sprintf("%s/app/accounts/%d/conversations/%d",
+				m.client.BaseURL, m.accountID, sel.ID)
+			openBrowser(url)
+		}
+		return m, nil
 	}
 
 	// Message pane focused
@@ -307,7 +316,7 @@ func (m Model) View() string {
 	}
 
 	// === Footer ===
-	footer := barStyle.Width(barContentW).Render(helpText())
+	footer := barStyle.Width(barContentW).Render(helpText(m.convList.Selected() != nil))
 
 	return header + "\n" + body + "\n" + footer
 }
@@ -448,6 +457,19 @@ func (m Model) renderInfo(w, h int) string {
 
 func matchKey(msg tea.KeyMsg, binding key.Binding) bool {
 	return key.Matches(msg, binding)
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
 }
 
 // Run launches the TUI with the given SDK client.
