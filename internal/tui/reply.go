@@ -85,7 +85,7 @@ func (r *ReplyEditor) Update(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-func (r *ReplyEditor) View(termW, termH int) string {
+func (r *ReplyEditor) View(termW int) string {
 	boxContentW := termW * 60 / 100
 	if boxContentW < 30 {
 		boxContentW = 30
@@ -103,13 +103,10 @@ func (r *ReplyEditor) View(termW, termH int) string {
 
 	content := header + "\n\n" + r.textarea.View() + "\n\n" + footer
 
-	boxStyle := lipgloss.NewStyle().
+	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(colorAccent).
 		Padding(1, 2).
-		Width(boxContentW)
-
-	box := boxStyle.Render(content)
-
-	return lipgloss.Place(termW, termH, lipgloss.Center, lipgloss.Center, box)
+		Width(boxContentW).
+		Render(content)
 }

@@ -378,7 +378,7 @@ func (m Model) View() string {
 	view := header + "\n" + body + "\n" + footer
 
 	if m.reply.IsActive() {
-		return m.reply.View(m.width, m.height)
+		return overlayCenter(view, m.reply.View(m.width), m.width, m.height)
 	}
 
 	return view
@@ -533,6 +533,35 @@ func openBrowser(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	_ = cmd.Start()
+}
+
+// overlayCenter places fg centered on top of bg, replacing the background lines
+// where the overlay appears. Lines above and below the overlay remain visible.
+func overlayCenter(bg, fg string, w, h int) string {
+	bgLines := strings.Split(bg, "\n")
+	fgLines := strings.Split(fg, "\n")
+
+	// Pad bg to full height if needed
+	for len(bgLines) < h {
+		bgLines = append(bgLines, "")
+	}
+
+	startY := (h - len(fgLines)) / 2
+
+	for i, fgLine := range fgLines {
+		y := startY + i
+		if y < 0 || y >= len(bgLines) {
+			continue
+		}
+		fgW := lipgloss.Width(fgLine)
+		padLeft := (w - fgW) / 2
+		if padLeft < 0 {
+			padLeft = 0
+		}
+		bgLines[y] = strings.Repeat(" ", padLeft) + fgLine
+	}
+
+	return strings.Join(bgLines, "\n")
 }
 
 // Run launches the TUI with the given SDK client.
