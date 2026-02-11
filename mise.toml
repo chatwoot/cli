@@ -8,4 +8,4 @@ run = "go build ./cmd/chatwoot/"
 
 [tasks.dev]
 description = "Auto-build on Go file changes"
-run = "watchexec -e go -- go build ./cmd/chatwoot/"
+run = "watchexec -e go --restart --debounce 300 -- go build ./cmd/chatwoot/"
