@@ -4,9 +4,31 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/glamour/ansi"
+	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chatwoot/chatwoot-cli/internal/sdk"
+	"github.com/muesli/termenv"
 )
+
+// chatStyleConfig returns a glamour style tuned for chat bubbles: no document
+// margin/indent and no block prefix/suffix newlines. Detected once at startup
+// before bubbletea takes over the terminal (WithAutoStyle deadlocks).
+var chatStyleConfig = func() glamour.TermRendererOption {
+	var cfg ansi.StyleConfig
+	if termenv.HasDarkBackground() {
+		cfg = styles.DarkStyleConfig
+	} else {
+		cfg = styles.LightStyleConfig
+	}
+	// Strip document-level whitespace — content lives inside a lipgloss box
+	zero := uint(0)
+	cfg.Document.Margin = &zero
+	cfg.Document.BlockPrefix = ""
+	cfg.Document.BlockSuffix = ""
+	return glamour.WithStyles(cfg)
+}()
 
 // MessagePane renders the messages for the selected conversation.
 // Messages are only loaded when the user presses Enter.
@@ -19,6 +41,7 @@ type MessagePane struct {
 	oldestMessageID  int
 	width, height    int
 	scrollOffset     int
+	mdRenderer       *glamour.TermRenderer
 }
 
 func NewMessagePane() MessagePane {
@@ -28,6 +51,23 @@ func NewMessagePane() MessagePane {
 func (p *MessagePane) SetSize(w, h int) {
 	p.width = w
 	p.height = h
+
+	// Recreate markdown renderer when width changes
+	boxContentW := w * 70 / 100
+	if boxContentW < 15 {
+		boxContentW = 15
+	}
+	textW := boxContentW - 2
+	if textW < 5 {
+		textW = 5
+	}
+	r, err := glamour.NewTermRenderer(
+		chatStyleConfig,
+		glamour.WithWordWrap(textW),
+	)
+	if err == nil {
+		p.mdRenderer = r
+	}
 }
 
 func (p *MessagePane) SetMessages(convID int, msgs []sdk.Message) {
@@ -209,6 +249,14 @@ func (p *MessagePane) renderMessage(msg sdk.Message) []string {
 	content := strings.TrimSpace(msg.Content)
 	if content == "" {
 		content = "(no content)"
+	}
+
+	// Render markdown
+	if p.mdRenderer != nil {
+		rendered, err := p.mdRenderer.Render(content)
+		if err == nil {
+			content = strings.TrimRight(rendered, "\n")
+		}
 	}
 
 	// Metadata line below box: [sender ·] #ID · time [· status]
