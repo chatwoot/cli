@@ -44,6 +44,11 @@ type toggleStatusMsg struct {
 
 type tickMsg time.Time
 
+type agentsMsg struct {
+	agents []sdk.AgentFull
+	err    error
+}
+
 type errMsg struct{ err error }
 
 func (e errMsg) Error() string { return e.err.Error() }
@@ -120,6 +125,16 @@ func sendMessage(client *sdk.Client, convID int, content string, private bool) t
 	return func() tea.Msg {
 		_, err := client.Messages(convID).Create(content, private)
 		return replyMsg{conversationID: convID, err: err}
+	}
+}
+
+func fetchAgents(client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		agents, err := client.Agents().List()
+		if err != nil {
+			return agentsMsg{err: err}
+		}
+		return agentsMsg{agents: agents}
 	}
 }
 

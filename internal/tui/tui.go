@@ -29,6 +29,7 @@ type Model struct {
 	activePane     int // 0=conversations, 1=messages
 	contact        *sdk.ContactFull
 	contactConvID  int // which conversation the contact was fetched for
+	agents         []sdk.AgentFull
 	loading        bool
 	err            error
 	spinner        spinner.Model
@@ -56,6 +57,7 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.fetchCmd(),
 		fetchProfile(m.client),
+		fetchAgents(m.client),
 		m.spinner.Tick,
 		autoRefreshTick(),
 	)
@@ -132,6 +134,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case profileMsg:
 		if msg.err == nil {
 			m.agentName = msg.name
+		}
+		return m, nil
+
+	case agentsMsg:
+		if msg.err == nil {
+			m.agents = msg.agents
 		}
 		return m, nil
 
@@ -259,7 +267,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if sel.Meta.Sender != nil && sel.Meta.Sender.Name != "" {
 					name = sel.Meta.Sender.Name
 				}
-				cmd := m.reply.Open(sel.ID, name, private, m.width, m.height)
+				cmd := m.reply.Open(sel.ID, name, private, m.width, m.height, m.agents)
 				return m, cmd
 			}
 			return m, nil
@@ -321,8 +329,14 @@ func (m Model) handleReplyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil // ignore keys while sending
 	}
 
-	switch msg.String() {
+	key := msg.String()
+
+	switch key {
 	case "esc":
+		if m.reply.MentionActive() {
+			m.reply.CloseMention()
+			return m, nil
+		}
 		m.reply.Close()
 		return m, nil
 	case "ctrl+c":
@@ -335,6 +349,35 @@ func (m Model) handleReplyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.reply.SetSending()
 		return m, sendMessage(m.client, m.reply.ConversationID(), content, m.reply.IsPrivate())
+	}
+
+	// When mention picker is active, intercept navigation keys
+	if m.reply.MentionActive() {
+		switch key {
+		case "up":
+			m.reply.MentionUp()
+			return m, nil
+		case "down":
+			m.reply.MentionDown()
+			return m, nil
+		case "enter", "tab":
+			m.reply.CompleteMention()
+			return m, nil
+		}
+		// All other keys: pass to textarea, then revalidate mention
+		cmd := m.reply.Update(msg)
+		m.reply.ValidateMention()
+		return m, cmd
+	}
+
+	// Check if @ triggers a mention
+	if key == "@" && len(m.reply.agents) > 0 {
+		val := m.reply.Value()
+		if len(val) == 0 || val[len(val)-1] == ' ' || val[len(val)-1] == '\n' {
+			cmd := m.reply.Update(msg)
+			m.reply.StartMention()
+			return m, cmd
+		}
 	}
 
 	// Pass all other keys to the textarea
