@@ -168,6 +168,11 @@ func (c *Client) Agents() *AgentsService {
 	return &AgentsService{client: c}
 }
 
+// Teams returns the teams service
+func (c *Client) Teams() *TeamsService {
+	return &TeamsService{client: c}
+}
+
 // Profile returns the profile service
 func (c *Client) Profile() *ProfileService {
 	return &ProfileService{client: c}

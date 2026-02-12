@@ -30,6 +30,7 @@ type Model struct {
 	contact        *sdk.ContactFull
 	contactConvID  int // which conversation the contact was fetched for
 	agents         []sdk.AgentFull
+	teams          []sdk.TeamFull
 	loading        bool
 	err            error
 	spinner        spinner.Model
@@ -58,6 +59,7 @@ func (m Model) Init() tea.Cmd {
 		m.fetchCmd(),
 		fetchProfile(m.client),
 		fetchAgents(m.client),
+		fetchTeams(m.client),
 		m.spinner.Tick,
 		autoRefreshTick(),
 	)
@@ -140,6 +142,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentsMsg:
 		if msg.err == nil {
 			m.agents = msg.agents
+		}
+		return m, nil
+
+	case teamsMsg:
+		if msg.err == nil {
+			m.teams = msg.teams
 		}
 		return m, nil
 
@@ -267,7 +275,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if sel.Meta.Sender != nil && sel.Meta.Sender.Name != "" {
 					name = sel.Meta.Sender.Name
 				}
-				cmd := m.reply.Open(sel.ID, name, private, m.width, m.height, m.agents)
+				cmd := m.reply.Open(sel.ID, name, private, m.width, m.height, m.agents, m.teams)
 				return m, cmd
 			}
 			return m, nil
@@ -371,7 +379,7 @@ func (m Model) handleReplyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Check if @ triggers a mention
-	if key == "@" && len(m.reply.agents) > 0 {
+	if key == "@" && m.reply.HasMentions() {
 		val := m.reply.Value()
 		if len(val) == 0 || val[len(val)-1] == ' ' || val[len(val)-1] == '\n' {
 			cmd := m.reply.Update(msg)

@@ -11,6 +11,15 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/sdk"
 )
 
+// mentionItem is a unified type for the mention picker (agents + teams).
+type mentionItem struct {
+	ID         int
+	Name       string
+	Kind       string // "user" or "team"
+	Status     string // availability status (agents only)
+	IsTeam     bool
+}
+
 // ReplyEditor is a floating modal for composing replies and private notes.
 type ReplyEditor struct {
 	textarea       textarea.Model
@@ -21,18 +30,18 @@ type ReplyEditor struct {
 	contactName    string
 
 	// Mention picker state
-	agents         []sdk.AgentFull
+	allMentions    []mentionItem
 	mentionActive  bool
 	mentionStart   int // index of '@' in textarea value
-	mentionIdx     int // selected agent in picker
-	mentionMatches []sdk.AgentFull
+	mentionIdx     int // selected item in picker
+	mentionMatches []mentionItem
 }
 
 func NewReplyEditor() ReplyEditor {
 	return ReplyEditor{}
 }
 
-func (r *ReplyEditor) Open(convID int, contactName string, private bool, width, height int, agents []sdk.AgentFull) tea.Cmd {
+func (r *ReplyEditor) Open(convID int, contactName string, private bool, width, height int, agents []sdk.AgentFull, teams []sdk.TeamFull) tea.Cmd {
 	placeholder := "Type your reply..."
 	if private {
 		placeholder = "Type your note..."
@@ -67,8 +76,21 @@ func (r *ReplyEditor) Open(convID int, contactName string, private bool, width, 
 	r.private = private
 	r.conversationID = convID
 	r.contactName = contactName
-	r.agents = agents
 	r.mentionActive = false
+
+	// Build unified mention list: agents first, then teams
+	r.allMentions = nil
+	for _, a := range agents {
+		r.allMentions = append(r.allMentions, mentionItem{
+			ID: a.ID, Name: a.Name, Kind: "user", Status: a.AvailabilityStatus,
+		})
+	}
+	for _, t := range teams {
+		r.allMentions = append(r.allMentions, mentionItem{
+			ID: t.ID, Name: t.Name, Kind: "team", IsTeam: true,
+		})
+	}
+
 	return textarea.Blink
 }
 
@@ -106,6 +128,10 @@ func (r *ReplyEditor) Update(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	r.textarea, cmd = r.textarea.Update(msg)
 	return cmd
+}
+
+func (r *ReplyEditor) HasMentions() bool {
+	return len(r.allMentions) > 0
 }
 
 // --- Mention picker ---
@@ -146,10 +172,11 @@ func (r *ReplyEditor) CompleteMention() {
 	if r.mentionIdx >= len(r.mentionMatches) {
 		r.mentionIdx = 0
 	}
-	agent := r.mentionMatches[r.mentionIdx]
+	item := r.mentionMatches[r.mentionIdx]
 	val := r.textarea.Value()
 
-	mention := fmt.Sprintf("[@%s](mention://user/%d/%s) ", agent.Name, agent.ID, url.PathEscape(agent.Name))
+	// mention://user/ID/Name or mention://team/ID/Name
+	mention := fmt.Sprintf("[@%s](mention://%s/%d/%s) ", item.Name, item.Kind, item.ID, url.PathEscape(item.Name))
 	newVal := val[:r.mentionStart] + mention
 	r.textarea.SetValue(newVal)
 	r.mentionActive = false
@@ -189,12 +216,12 @@ func (r *ReplyEditor) mentionQuery() string {
 func (r *ReplyEditor) filterMentions() {
 	query := strings.ToLower(r.mentionQuery())
 	if query == "" {
-		r.mentionMatches = r.agents
+		r.mentionMatches = r.allMentions
 	} else {
 		r.mentionMatches = nil
-		for _, a := range r.agents {
-			if strings.Contains(strings.ToLower(a.Name), query) {
-				r.mentionMatches = append(r.mentionMatches, a)
+		for _, m := range r.allMentions {
+			if strings.Contains(strings.ToLower(m.Name), query) {
+				r.mentionMatches = append(r.mentionMatches, m)
 			}
 		}
 	}
@@ -251,7 +278,7 @@ func (r *ReplyEditor) View(termW int) string {
 func (r *ReplyEditor) renderMentionPicker() string {
 	maxShow := 5
 	var lines []string
-	for i, agent := range r.mentionMatches {
+	for i, item := range r.mentionMatches {
 		if i >= maxShow {
 			remaining := len(r.mentionMatches) - maxShow
 			lines = append(lines, lipgloss.NewStyle().Foreground(colorMuted).
@@ -259,24 +286,27 @@ func (r *ReplyEditor) renderMentionPicker() string {
 			break
 		}
 
-		dot := availabilityDot(agent.AvailabilityStatus)
-		label := fmt.Sprintf("  %s %s", dot, agent.Name)
+		dot := mentionDot(item)
+		label := fmt.Sprintf("  %s %s", dot, item.Name)
 		if i == r.mentionIdx {
 			label = lipgloss.NewStyle().Bold(true).Background(colorSelected).
-				Render(fmt.Sprintf("▸ %s %s", dot, agent.Name))
+				Render(fmt.Sprintf("▸ %s %s", dot, item.Name))
 		}
 		lines = append(lines, label)
 	}
 	return strings.Join(lines, "\n")
 }
 
-func availabilityDot(status string) string {
-	switch status {
+func mentionDot(item mentionItem) string {
+	if item.IsTeam {
+		return lipgloss.NewStyle().Foreground(colorAccent).Render("◆")
+	}
+	switch item.Status {
 	case "online":
 		return lipgloss.NewStyle().Foreground(colorOpen).Render("●")
 	case "busy":
 		return lipgloss.NewStyle().Foreground(colorPending).Render("●")
-	default: // offline
+	default:
 		return lipgloss.NewStyle().Foreground(colorMuted).Render("●")
 	}
 }

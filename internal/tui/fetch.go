@@ -49,6 +49,11 @@ type agentsMsg struct {
 	err    error
 }
 
+type teamsMsg struct {
+	teams []sdk.TeamFull
+	err   error
+}
+
 type errMsg struct{ err error }
 
 func (e errMsg) Error() string { return e.err.Error() }
@@ -135,6 +140,16 @@ func fetchAgents(client *sdk.Client) tea.Cmd {
 			return agentsMsg{err: err}
 		}
 		return agentsMsg{agents: agents}
+	}
+}
+
+func fetchTeams(client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		teams, err := client.Teams().List()
+		if err != nil {
+			return teamsMsg{err: err}
+		}
+		return teamsMsg{teams: teams}
 	}
 }
 
