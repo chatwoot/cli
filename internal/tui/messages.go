@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
@@ -11,6 +12,10 @@ import (
 	"github.com/chatwoot/chatwoot-cli/internal/sdk"
 	"github.com/muesli/termenv"
 )
+
+// mentionRe matches [@Name](mention://user/ID/Name) or [@Name](mention://team/ID/Name)
+// and captures the display text (the part inside [ ]).
+var mentionRe = regexp.MustCompile(`\[@([^\]]+)\]\(mention://(?:user|team)/\d+/[^)]+\)`)
 
 // chatStyleConfig returns a glamour style tuned for chat bubbles: no document
 // margin/indent and no block prefix/suffix newlines. Detected once at startup
@@ -250,6 +255,9 @@ func (p *MessagePane) renderMessage(msg sdk.Message) []string {
 	if content == "" {
 		content = "(no content)"
 	}
+
+	// Strip mention URLs: [@Name](mention://...) → **@Name** (bold)
+	content = mentionRe.ReplaceAllString(content, "**@$1**")
 
 	// Render markdown
 	if p.mdRenderer != nil {
