@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/chatwoot/chatwoot-cli/internal/output"
-	"github.com/chatwoot/chatwoot-cli/internal/sdk"
+	"github.com/chatwoot/cli/internal/output"
+	"github.com/chatwoot/cli/internal/sdk"
 )
 
 type ConversationCmd struct {

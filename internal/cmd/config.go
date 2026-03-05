@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chatwoot/chatwoot-cli/internal/config"
-	"github.com/chatwoot/chatwoot-cli/internal/output"
+	"github.com/chatwoot/cli/internal/config"
+	"github.com/chatwoot/cli/internal/output"
 )
 
 type ConfigCmd struct {

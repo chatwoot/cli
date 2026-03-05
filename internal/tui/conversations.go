@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/chatwoot/chatwoot-cli/internal/sdk"
+	"github.com/chatwoot/cli/internal/sdk"
 	"github.com/sahilm/fuzzy"
 )
 

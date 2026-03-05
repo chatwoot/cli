@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/chatwoot/chatwoot-cli/internal/sdk"
+	"github.com/chatwoot/cli/internal/sdk"
 	"github.com/muesli/termenv"
 )
 

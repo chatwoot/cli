@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/chatwoot/chatwoot-cli/internal/cmd"
-	"github.com/chatwoot/chatwoot-cli/internal/config"
-	"github.com/chatwoot/chatwoot-cli/internal/sdk"
-	"github.com/chatwoot/chatwoot-cli/internal/tui"
+	"github.com/chatwoot/cli/internal/cmd"
+	"github.com/chatwoot/cli/internal/config"
+	"github.com/chatwoot/cli/internal/sdk"
+	"github.com/chatwoot/cli/internal/tui"
 	"github.com/willabides/kongplete"
 )
 

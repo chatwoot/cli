@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/chatwoot/chatwoot-cli/internal/config"
-	"github.com/chatwoot/chatwoot-cli/internal/output"
-	"github.com/chatwoot/chatwoot-cli/internal/sdk"
+	"github.com/chatwoot/cli/internal/config"
+	"github.com/chatwoot/cli/internal/output"
+	"github.com/chatwoot/cli/internal/sdk"
 )
 
 // App holds shared state passed to every command's Run method.

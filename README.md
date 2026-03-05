@@ -7,14 +7,14 @@ Interactive TUI and CLI for [Chatwoot](https://www.chatwoot.com) — manage conv
 ## Install
 
 ```bash
-go install github.com/chatwoot/chatwoot-cli/cmd/chatwoot@latest
+go install github.com/chatwoot/cli/cmd/chatwoot@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/chatwoot/chatwoot-cli.git
-cd chatwoot-cli
+git clone https://github.com/chatwoot/cli.git
+cd cli
 go build -o chatwoot ./cmd/chatwoot/
 ```
 

@@ -1,4 +1,4 @@
-module github.com/chatwoot/chatwoot-cli
+module github.com/chatwoot/cli
 
 go 1.24.2
 
