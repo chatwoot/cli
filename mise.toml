@@ -2,13 +2,16 @@
 go = "latest"
 watchexec = "latest"
 
+[env]
+_.path = ["{{config_root}}/bin"]
+
 [tasks.build]
 description = "Build the CLI"
-run = "go build ./cmd/chatwoot/"
+run = "mkdir -p ./bin && go build -o ./bin/chatwoot ./cmd/chatwoot/"
 
 [tasks.dev]
 description = "Auto-build on Go file changes"
-run = "watchexec -e go --restart --debounce 300 -- go build ./cmd/chatwoot/"
+run = "mkdir -p ./bin && watchexec -e go --restart --debounce 300 -- go build -o ./bin/chatwoot ./cmd/chatwoot/"
 
 [tasks.agents]
 description = "Create AGENTS.md symlinks to CLAUDE.md in all module directories"
