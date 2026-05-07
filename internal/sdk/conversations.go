@@ -199,14 +199,21 @@ func (s *ConversationsService) Unassign(id int) error {
 }
 
 type UpdatePriorityRequest struct {
-	Priority string `json:"priority"`
+	Priority *string `json:"priority"`
 }
 
 // UpdatePriority sets the conversation priority. Accepted values:
-// "urgent", "high", "medium", "low", "none". The endpoint rejects null,
-// so callers should pass "none" to clear an existing priority.
+// "urgent", "high", "medium", "low". Pass "" to clear (sends JSON null).
+//
+// Note: Chatwoot's swagger spec also lists "none" as a valid enum value, but
+// the live toggle_priority endpoint returns 500 when sent literally. Sending
+// null clears the priority cleanly.
 func (s *ConversationsService) UpdatePriority(id int, priority string) error {
-	jsonBody, err := json.Marshal(UpdatePriorityRequest{Priority: priority})
+	req := UpdatePriorityRequest{}
+	if priority != "" {
+		req.Priority = &priority
+	}
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
