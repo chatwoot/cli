@@ -1,6 +1,6 @@
 # internal/sdk - Chatwoot API Client
 
-HTTP client and service layer for read-only Chatwoot API access. Built with a factory pattern — each service (conversations, messages, contacts, etc.) is accessed via a method on the `Client` struct.
+HTTP client and service layer for Chatwoot API access. Built with a factory pattern — each service (conversations, messages, contacts, etc.) is accessed via a method on the `Client` struct.
 
 ## Core Files
 

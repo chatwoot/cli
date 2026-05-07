@@ -38,7 +38,7 @@ func main() {
 	var cli cmd.CLI
 	parser := kong.Must(&cli,
 		kong.Name("chatwoot"),
-		kong.Description("Read-only CLI for Chatwoot."),
+		kong.Description("CLI and interactive TUI for Chatwoot."),
 		kong.Vars{"version": version},
 		kong.UsageOnError(),
 	)

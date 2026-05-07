@@ -1,6 +1,6 @@
 # chatwoot-cli
 
-Read-only CLI and interactive TUI for the Chatwoot API.
+CLI and interactive TUI for the Chatwoot API.
 
 ## Build & Run
 
