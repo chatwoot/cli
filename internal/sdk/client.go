@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -14,6 +15,7 @@ type Client struct {
 	BaseURL    string
 	APIKey     string
 	AccountID  int
+	Verbose    bool
 	httpClient *http.Client
 }
 
@@ -22,6 +24,12 @@ type ClientOption func(*Client)
 func WithHTTPClient(httpClient *http.Client) ClientOption {
 	return func(c *Client) {
 		c.httpClient = httpClient
+	}
+}
+
+func WithVerbose(verbose bool) ClientOption {
+	return func(c *Client) {
+		c.Verbose = verbose
 	}
 }
 
@@ -59,21 +67,43 @@ func (c *Client) request(method, path string, body io.Reader) (*http.Request, er
 }
 
 func (c *Client) do(req *http.Request, v interface{}) error {
+	if c.Verbose {
+		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL.String())
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	if c.Verbose {
+		fmt.Fprintf(os.Stderr, "< %s\n", resp.Status)
+	}
+
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
 
-	if v != nil {
-		if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+	if v == nil {
+		return nil
+	}
+
+	if c.Verbose {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read response: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "< %s\n", string(body))
+		if err := json.Unmarshal(body, v); err != nil {
 			return fmt.Errorf("failed to decode response: %w", err)
 		}
+		return nil
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return nil
@@ -151,6 +181,11 @@ func (c *Client) Messages(conversationID int) *MessagesService {
 // Labels returns the labels service for a conversation
 func (c *Client) Labels(conversationID int) *LabelsService {
 	return &LabelsService{client: c, conversationID: conversationID}
+}
+
+// AccountLabels returns the account-level labels service.
+func (c *Client) AccountLabels() *AccountLabelsService {
+	return &AccountLabelsService{client: c}
 }
 
 // Contacts returns the contacts service

@@ -67,6 +67,19 @@ type ContactsSearchOptions struct {
 	Sort  string
 }
 
+type ContactConversationsResponse struct {
+	Payload []Conversation `json:"payload"`
+}
+
+// Conversations returns the conversations associated with a contact.
+func (s *ContactsService) Conversations(id int) (*ContactConversationsResponse, error) {
+	var resp ContactConversationsResponse
+	if err := s.client.Get(fmt.Sprintf("/contacts/%d/conversations", id), nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 func (s *ContactsService) Search(opts ContactsSearchOptions) (*ContactsListResponse, error) {
 	params := url.Values{}
 	params.Set("q", opts.Query)

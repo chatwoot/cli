@@ -184,3 +184,29 @@ func (s *ConversationsService) Assign(id int, assigneeID int, teamID int) (*User
 
 	return &user, nil
 }
+
+func (s *ConversationsService) Unassign(id int) error {
+	body := AssignRequest{AssigneeID: 0}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	return s.client.Post(fmt.Sprintf("/conversations/%d/assignments", id), bytes.NewReader(jsonBody), nil)
+}
+
+type UpdatePriorityRequest struct {
+	Priority *string `json:"priority"`
+}
+
+// UpdatePriority sets the conversation priority. Pass "" to clear.
+func (s *ConversationsService) UpdatePriority(id int, priority string) error {
+	req := UpdatePriorityRequest{}
+	if priority != "" {
+		req.Priority = &priority
+	}
+	jsonBody, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	return s.client.Post(fmt.Sprintf("/conversations/%d/toggle_priority", id), bytes.NewReader(jsonBody), nil)
+}
