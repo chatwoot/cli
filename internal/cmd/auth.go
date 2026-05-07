@@ -50,7 +50,6 @@ func (c *AuthLoginCmd) Run(app *App) error {
 
 	cfg := &config.Config{
 		BaseURL:   baseURL,
-		APIKey:    apiKey,
 		AccountID: accountID,
 	}
 
@@ -59,13 +58,18 @@ func (c *AuthLoginCmd) Run(app *App) error {
 	}
 
 	// Validate credentials by fetching profile
-	client := sdk.NewClient(cfg.BaseURL, cfg.APIKey, cfg.AccountID)
+	client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
 	profile, err := client.Profile().Get()
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
+	if err := config.SaveAPIKey(cfg, apiKey); err != nil {
+		return err
+	}
+
 	if err := config.Save(cfg); err != nil {
+		_ = config.DeleteAPIKey(cfg)
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
@@ -96,20 +100,37 @@ func readAPIKey(reader *bufio.Reader) (string, error) {
 type AuthLogoutCmd struct{}
 
 func (c *AuthLogoutCmd) Run(app *App) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
 	path, err := config.ConfigPath()
 	if err != nil {
 		return err
 	}
 
+	if cfg != nil {
+		if err := config.DeleteAPIKey(cfg); err != nil {
+			return err
+		}
+	}
+
 	if err := os.Remove(path); err != nil {
 		if os.IsNotExist(err) {
 			fmt.Println("Not logged in.")
+			if strings.TrimSpace(os.Getenv(config.APIKeyEnv)) != "" {
+				fmt.Printf("%s is set in your environment; logout cannot remove environment-provided credentials.\n", config.APIKeyEnv)
+			}
 			return nil
 		}
 		return fmt.Errorf("failed to remove config: %w", err)
 	}
 
 	fmt.Println("Logged out successfully.")
+	if strings.TrimSpace(os.Getenv(config.APIKeyEnv)) != "" {
+		fmt.Printf("%s is set in your environment; logout cannot remove environment-provided credentials.\n", config.APIKeyEnv)
+	}
 	return nil
 }
 
@@ -126,7 +147,12 @@ func (c *AuthStatusCmd) Run(app *App) error {
 		return nil
 	}
 
-	client := sdk.NewClient(cfg.BaseURL, cfg.APIKey, cfg.AccountID)
+	apiKey, _, err := config.ResolveAPIKey(cfg)
+	if err != nil {
+		return fmt.Errorf("not authenticated: %w", err)
+	}
+
+	client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
 	profile, err := client.Profile().Get()
 	if err != nil {
 		return fmt.Errorf("failed to fetch profile: %w", err)

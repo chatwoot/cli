@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
 	BaseURL   string `yaml:"base_url"`
-	APIKey    string `yaml:"api_key"`
 	AccountID int    `yaml:"account_id"`
 }
 
@@ -86,5 +86,5 @@ func Save(cfg *Config) error {
 }
 
 func (c *Config) IsValid() bool {
-	return c.BaseURL != "" && c.APIKey != "" && c.AccountID > 0
+	return strings.TrimSpace(c.BaseURL) != "" && c.AccountID > 0
 }

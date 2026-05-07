@@ -27,7 +27,12 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Not authenticated. Run: chatwoot auth login")
 			os.Exit(1)
 		}
-		client := sdk.NewClient(cfg.BaseURL, cfg.APIKey, cfg.AccountID)
+		apiKey, _, err := config.ResolveAPIKey(cfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: not authenticated: %v\n", err)
+			os.Exit(1)
+		}
+		client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
 		if err := tui.Run(client, cfg.AccountID, version); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)

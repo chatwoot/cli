@@ -37,7 +37,12 @@ func NewApp(cli *CLI, skipAuth bool) (*App, error) {
 		cfg.AccountID = cli.Account
 	}
 
-	client := sdk.NewClient(cfg.BaseURL, cfg.APIKey, cfg.AccountID)
+	apiKey, _, err := config.ResolveAPIKey(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("not authenticated: %w", err)
+	}
+
+	client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
 
 	return &App{
 		Client:  client,

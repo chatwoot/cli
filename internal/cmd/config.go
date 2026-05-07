@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/chatwoot/cli/internal/config"
 	"github.com/chatwoot/cli/internal/output"
@@ -37,20 +37,24 @@ func (c *ConfigViewCmd) Run(app *App) error {
 		return nil
 	}
 
-	maskedKey := maskAPIKey(cfg.APIKey)
+	credential := credentialStatus(cfg)
 
 	app.Printer.PrintDetail([]output.KeyValue{
 		{Key: "Base URL", Value: cfg.BaseURL},
-		{Key: "API Key", Value: maskedKey},
 		{Key: "Account ID", Value: fmt.Sprintf("%d", cfg.AccountID)},
+		{Key: "Credential", Value: credential},
 	})
 
 	return nil
 }
 
-func maskAPIKey(key string) string {
-	if len(key) <= 8 {
-		return strings.Repeat("*", len(key))
+func credentialStatus(cfg *config.Config) string {
+	_, source, err := config.ResolveAPIKey(cfg)
+	if err == nil {
+		return string(source)
 	}
-	return key[:4] + strings.Repeat("*", len(key)-8) + key[len(key)-4:]
+	if errors.Is(err, config.ErrAPIKeyNotFound) {
+		return string(config.CredentialSourceMissing)
+	}
+	return "error: " + err.Error()
 }
