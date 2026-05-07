@@ -31,46 +31,6 @@ You'll be prompted for:
 
 Credentials are validated against the API before saving. Non-secret config is stored at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI, coding agents, or headless environments, set `CHATWOOT_API_KEY` to override the saved keyring token.
 
-## Interactive TUI
-
-Launch the interactive interface with no arguments:
-
-```bash
-chatwoot
-```
-
-### Features
-
-- **Three-column layout** — Conversations list, messages, and contact info
-- **Message pagination** — Automatically loads older messages as you scroll
-- **Reply to customers** — Press `R` to compose replies
-- **Private notes** — Press `P` to add internal notes (yellow accent)
-- **Command palette** — Press `Ctrl+K` for quick actions:
-  - Mark as resolved/pending/snoozed
-  - Snooze until tomorrow/next week/next reply
-  - Open in browser
-  - Refresh data
-  - Quit
-- **Status management** — Toggle conversation status with Tab and `s`
-- **Keyboard-first** — Designed for speed with vim-style navigation
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `↑↓` | Navigate conversations/messages |
-| `/` | Filter conversations |
-| `Tab` | Cycle assignee tabs (Mine/Unassigned/All) |
-| `s` | Cycle status filter |
-| `Enter` | Load messages / Focus message pane |
-| `Esc` | Return to conversation list |
-| `R` | Reply to conversation |
-| `P` | Add private note |
-| `Ctrl+K` | Open command palette |
-| `o` | Open conversation in browser |
-| `r` | Refresh data |
-| `q` | Quit |
-
 ## CLI Usage
 
 The CLI uses a simple noun grammar:
@@ -183,6 +143,46 @@ chatwoot agents -o csv > agents.csv
 ```bash
 chatwoot convs -q | xargs -I{} chatwoot conv view {}
 ```
+
+## Interactive TUI (Beta)
+
+Launch the interactive interface with no arguments:
+
+```bash
+chatwoot
+```
+
+### Features
+
+- **Three-column layout** — Conversations list, messages, and contact info
+- **Message pagination** — Automatically loads older messages as you scroll
+- **Reply to customers** — Press `R` to compose replies
+- **Private notes** — Press `P` to add internal notes (yellow accent)
+- **Command palette** — Press `Ctrl+K` for quick actions:
+  - Mark as resolved/pending/snoozed
+  - Snooze until tomorrow/next week/next reply
+  - Open in browser
+  - Refresh data
+  - Quit
+- **Status management** — Toggle conversation status with Tab and `s`
+- **Keyboard-first** — Designed for speed with vim-style navigation
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `↑↓` | Navigate conversations/messages |
+| `/` | Filter conversations |
+| `Tab` | Cycle assignee tabs (Mine/Unassigned/All) |
+| `s` | Cycle status filter |
+| `Enter` | Load messages / Focus message pane |
+| `Esc` | Return to conversation list |
+| `R` | Reply to conversation |
+| `P` | Add private note |
+| `Ctrl+K` | Open command palette |
+| `o` | Open conversation in browser |
+| `r` | Refresh data |
+| `q` | Quit |
 
 ## License
 
