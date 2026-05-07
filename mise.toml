@@ -13,6 +13,10 @@ run = "mkdir -p ./bin && go build -o ./bin/chatwoot ./cmd/chatwoot/"
 description = "Auto-build on Go file changes"
 run = "mkdir -p ./bin && watchexec -e go --restart --debounce 300 -- go build -o ./bin/chatwoot ./cmd/chatwoot/"
 
+[tasks."sdk:update-swagger"]
+description = "Update the pinned Chatwoot application Swagger snapshot"
+run = "curl -fL https://raw.githubusercontent.com/chatwoot/chatwoot/develop/swagger/tag_groups/application_swagger.json -o internal/sdk/testdata/application_swagger.json"
+
 [tasks.agents]
 description = "Create AGENTS.md symlinks to CLAUDE.md in all module directories"
 run = """
