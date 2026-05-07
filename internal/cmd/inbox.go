@@ -7,14 +7,13 @@ import (
 	"github.com/chatwoot/cli/internal/output"
 )
 
-type InboxCmd struct {
-	List InboxListCmd `cmd:"" default:"1" help:"List inboxes."`
-	View InboxViewCmd `cmd:"" help:"View an inbox."`
-}
+// -----------------------------------------------------------------------------
+// Plural: `chatwoot inboxes` — list inboxes.
+// -----------------------------------------------------------------------------
 
-type InboxListCmd struct{}
+type InboxesCmd struct{}
 
-func (c *InboxListCmd) Run(app *App) error {
+func (c *InboxesCmd) Run(app *App) error {
 	resp, err := app.Client.Inboxes().List()
 	if err != nil {
 		return err
@@ -44,6 +43,14 @@ func (c *InboxListCmd) Run(app *App) error {
 	return nil
 }
 
+// -----------------------------------------------------------------------------
+// Singular: `chatwoot inbox <id>` — view one inbox.
+// -----------------------------------------------------------------------------
+
+type InboxCmd struct {
+	View InboxViewCmd `cmd:"" default:"withargs" help:"View an inbox (default)."`
+}
+
 type InboxViewCmd struct {
 	ID int `arg:"" help:"Inbox ID."`
 }
@@ -65,6 +72,5 @@ func (c *InboxViewCmd) Run(app *App) error {
 		{Key: "Channel Type", Value: inbox.ChannelType},
 		{Key: "Greeting", Value: inbox.GreetingMessage},
 	})
-
 	return nil
 }

@@ -8,22 +8,32 @@ import (
 	"github.com/chatwoot/cli/internal/sdk"
 )
 
-type ContactCmd struct {
-	List   ContactListCmd   `cmd:"" default:"1" help:"List contacts."`
-	View   ContactViewCmd   `cmd:"" help:"View a contact."`
-	Search ContactSearchCmd `cmd:"" help:"Search contacts."`
+// -----------------------------------------------------------------------------
+// Plural: `chatwoot contacts` — list or search contacts.
+// -----------------------------------------------------------------------------
+
+type ContactsCmd struct {
+	Search string `help:"Search query (name, email, phone)."`
+	Page   int    `short:"p" default:"1" help:"Page number."`
+	Sort   string `help:"Sort by name, email, phone_number, last_activity_at; '-' prefix for descending."`
 }
 
-type ContactListCmd struct {
-	Page int    `short:"p" default:"1" help:"Page number."`
-	Sort string `help:"Sort by name, email, phone_number, last_activity_at, or prefix with '-' for descending."`
-}
+func (c *ContactsCmd) Run(app *App) error {
+	var resp *sdk.ContactsListResponse
+	var err error
 
-func (c *ContactListCmd) Run(app *App) error {
-	resp, err := app.Client.Contacts().List(sdk.ContactsListOptions{
-		Page: c.Page,
-		Sort: c.Sort,
-	})
+	if c.Search != "" {
+		resp, err = app.Client.Contacts().Search(sdk.ContactsSearchOptions{
+			Query: c.Search,
+			Page:  c.Page,
+			Sort:  c.Sort,
+		})
+	} else {
+		resp, err = app.Client.Contacts().List(sdk.ContactsListOptions{
+			Page: c.Page,
+			Sort: c.Sort,
+		})
+	}
 	if err != nil {
 		return err
 	}
@@ -53,6 +63,15 @@ func (c *ContactListCmd) Run(app *App) error {
 	return nil
 }
 
+// -----------------------------------------------------------------------------
+// Singular: `chatwoot contact <verb> <id>` — context for one contact.
+// -----------------------------------------------------------------------------
+
+type ContactCmd struct {
+	View          ContactViewCmd          `cmd:"" default:"withargs" help:"View a contact (default)."`
+	Conversations ContactConversationsCmd `cmd:"" help:"List conversations for the contact."`
+}
+
 type ContactViewCmd struct {
 	ID int `arg:"" help:"Contact ID."`
 }
@@ -78,22 +97,15 @@ func (c *ContactViewCmd) Run(app *App) error {
 		{Key: "Last Activity", Value: formatTimestamp(contact.LastActivityAt)},
 		{Key: "Created", Value: formatTimestamp(contact.CreatedAt)},
 	})
-
 	return nil
 }
 
-type ContactSearchCmd struct {
-	Query string `arg:"" help:"Search query (name, email, or phone)."`
-	Page  int    `short:"p" default:"1" help:"Page number."`
-	Sort  string `help:"Sort by name, email, phone_number, last_activity_at, or prefix with '-' for descending."`
+type ContactConversationsCmd struct {
+	ID int `arg:"" help:"Contact ID."`
 }
 
-func (c *ContactSearchCmd) Run(app *App) error {
-	resp, err := app.Client.Contacts().Search(sdk.ContactsSearchOptions{
-		Query: c.Query,
-		Page:  c.Page,
-		Sort:  c.Sort,
-	})
+func (c *ContactConversationsCmd) Run(app *App) error {
+	resp, err := app.Client.Contacts().Conversations(c.ID)
 	if err != nil {
 		return err
 	}
@@ -104,18 +116,19 @@ func (c *ContactSearchCmd) Run(app *App) error {
 	}
 
 	if len(resp.Payload) == 0 {
-		fmt.Println("No contacts found.")
+		fmt.Println("No conversations found for this contact.")
 		return nil
 	}
 
-	headers := []string{"ID", "Name", "Email", "Phone"}
+	headers := []string{"ID", "Status", "Assignee", "Inbox", "Last Activity"}
 	rows := make([][]string, 0, len(resp.Payload))
-	for _, ct := range resp.Payload {
+	for _, conv := range resp.Payload {
 		rows = append(rows, []string{
-			strconv.Itoa(ct.ID),
-			ct.Name,
-			ct.Email,
-			ct.PhoneNumber,
+			strconv.Itoa(conv.ID),
+			conv.Status,
+			assigneeName(conv),
+			conv.Meta.Channel,
+			formatTimestamp(conv.LastActivityAt),
 		})
 	}
 

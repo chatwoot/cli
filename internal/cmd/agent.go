@@ -5,13 +5,10 @@ import (
 	"strconv"
 )
 
-type AgentCmd struct {
-	List AgentListCmd `cmd:"" default:"1" help:"List agents."`
-}
+// AgentsCmd is `chatwoot agents` — list agents on the account.
+type AgentsCmd struct{}
 
-type AgentListCmd struct{}
-
-func (c *AgentListCmd) Run(app *App) error {
+func (c *AgentsCmd) Run(app *App) error {
 	agents, err := app.Client.Agents().List()
 	if err != nil {
 		return err

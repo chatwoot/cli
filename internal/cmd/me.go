@@ -6,9 +6,10 @@ import (
 	"github.com/chatwoot/cli/internal/output"
 )
 
-type ProfileCmd struct{}
+// MeCmd is `chatwoot me` — show the authenticated user's profile.
+type MeCmd struct{}
 
-func (c *ProfileCmd) Run(app *App) error {
+func (c *MeCmd) Run(app *App) error {
 	profile, err := app.Client.Profile().Get()
 	if err != nil {
 		return err
@@ -26,6 +27,5 @@ func (c *ProfileCmd) Run(app *App) error {
 		{Key: "Role", Value: profile.Role},
 		{Key: "Availability", Value: profile.AvailabilityStatus},
 	})
-
 	return nil
 }

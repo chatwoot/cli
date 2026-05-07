@@ -6,6 +6,11 @@ import (
 )
 
 // CLI is the root Kong struct defining the entire command tree.
+//
+// Grammar:
+//   - Plural noun = list:    `chatwoot convs`, `chatwoot contacts`
+//   - Singular + verb + id:  `chatwoot conv view 123`, `chatwoot conv reply 123 "hi"`
+//   - `conv 123` is shorthand for `conv view 123` (default subcommand).
 type CLI struct {
 	Output  string `short:"o" default:"text" enum:"text,json,csv" help:"Output format."`
 	Account int    `short:"a" help:"Override account ID."`
@@ -13,14 +18,26 @@ type CLI struct {
 	NoColor bool   `help:"Disable colored output."`
 	Verbose bool   `short:"v" help:"Show request/response details."`
 
-	Conversation ConversationCmd            `cmd:"" aliases:"conv" help:"List and view conversations."`
-	Message      MessageCmd                 `cmd:"" aliases:"msg" help:"View messages in a conversation."`
-	Contact      ContactCmd                 `cmd:"" help:"View and search contacts."`
-	Inbox        InboxCmd                   `cmd:"" help:"List and view inboxes."`
-	Agent        AgentCmd                   `cmd:"" help:"List agents."`
-	Profile      ProfileCmd                 `cmd:"" help:"Show your profile."`
-	Auth         AuthCmd                    `cmd:"" help:"Login, logout, and status."`
-	Config       ConfigCmd                  `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
+	// Plurals — list commands.
+	Convs    ConvsCmd    `cmd:"" aliases:"conversations" help:"List conversations."`
+	Contacts ContactsCmd `cmd:"" help:"List or search contacts."`
+	Inboxes  InboxesCmd  `cmd:"" help:"List inboxes."`
+	Agents   AgentsCmd   `cmd:"" help:"List agents."`
+	Labels   LabelsCmd   `cmd:"" help:"List labels."`
+	Teams    TeamsCmd    `cmd:"" help:"List teams."`
+
+	// Singulars — context for verbs and subresources.
+	Conv    ConvCmd    `cmd:"" aliases:"conversation" help:"View or act on a conversation."`
+	Contact ContactCmd `cmd:"" help:"View a contact."`
+	Inbox   InboxCmd   `cmd:"" help:"View an inbox."`
+
+	// Workflow.
+	Me MeCmd `cmd:"" help:"Show your profile."`
+
+	// Setup.
+	Auth   AuthCmd   `cmd:"" help:"Login, logout, and status."`
+	Config ConfigCmd `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
+
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions."`
 
 	Version kong.VersionFlag `help:"Show version."`
