@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/chatwoot/chatwoot-cli/internal/output"
+	"github.com/chatwoot/cli/internal/output"
 )
 
 type InboxCmd struct {

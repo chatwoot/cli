@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/chatwoot/chatwoot-cli/internal/sdk"
+	"github.com/chatwoot/cli/internal/sdk"
 )
 
 type Model struct {
