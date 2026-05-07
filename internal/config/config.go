@@ -12,6 +12,7 @@ import (
 type Config struct {
 	BaseURL   string `yaml:"base_url"`
 	AccountID int    `yaml:"account_id"`
+	UserID    int    `yaml:"user_id,omitempty"`
 }
 
 func ConfigDir() (string, error) {

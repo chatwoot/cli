@@ -63,6 +63,7 @@ func (c *AuthLoginCmd) Run(app *App) error {
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
+	cfg.UserID = profile.ID
 
 	if err := config.SaveAPIKey(cfg, apiKey); err != nil {
 		return err
