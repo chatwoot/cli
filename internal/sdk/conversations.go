@@ -162,11 +162,14 @@ func (s *ConversationsService) ToggleStatus(id int, status string, snoozedUntil 
 }
 
 type AssignRequest struct {
-	AssigneeID int `json:"assignee_id"`
-	TeamID     int `json:"team_id,omitempty"`
+	AssigneeID *int `json:"assignee_id,omitempty"`
+	TeamID     int  `json:"team_id,omitempty"`
 }
 
-func (s *ConversationsService) Assign(id int, assigneeID int, teamID int) (*User, error) {
+// Assign updates the conversation's assignee and/or team. Pass a nil
+// assigneeID to leave the agent assignment untouched (e.g. team-only
+// assignment). Pass a pointer to 0 to explicitly unassign the agent.
+func (s *ConversationsService) Assign(id int, assigneeID *int, teamID int) (*User, error) {
 	body := AssignRequest{
 		AssigneeID: assigneeID,
 		TeamID:     teamID,
@@ -186,7 +189,8 @@ func (s *ConversationsService) Assign(id int, assigneeID int, teamID int) (*User
 }
 
 func (s *ConversationsService) Unassign(id int) error {
-	body := AssignRequest{AssigneeID: 0}
+	zero := 0
+	body := AssignRequest{AssigneeID: &zero}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -195,16 +199,14 @@ func (s *ConversationsService) Unassign(id int) error {
 }
 
 type UpdatePriorityRequest struct {
-	Priority *string `json:"priority"`
+	Priority string `json:"priority"`
 }
 
-// UpdatePriority sets the conversation priority. Pass "" to clear.
+// UpdatePriority sets the conversation priority. Accepted values:
+// "urgent", "high", "medium", "low", "none". The endpoint rejects null,
+// so callers should pass "none" to clear an existing priority.
 func (s *ConversationsService) UpdatePriority(id int, priority string) error {
-	req := UpdatePriorityRequest{}
-	if priority != "" {
-		req.Priority = &priority
-	}
-	jsonBody, err := json.Marshal(req)
+	jsonBody, err := json.Marshal(UpdatePriorityRequest{Priority: priority})
 	if err != nil {
 		return err
 	}

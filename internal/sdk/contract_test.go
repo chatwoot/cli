@@ -68,7 +68,8 @@ func TestConversationsAssignContract(t *testing.T) {
 		return contractResponse{body: userJSON(7, "Ada Lovelace", "ada@example.com")}
 	})
 
-	got, err := client.Conversations().Assign(42, 7, 0)
+	agentID := 7
+	got, err := client.Conversations().Assign(42, &agentID, 0)
 	if err != nil {
 		t.Fatalf("Assign returned error: %v", err)
 	}

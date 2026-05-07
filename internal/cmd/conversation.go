@@ -311,15 +311,15 @@ func (c *ConvAssignCmd) Run(app *App) error {
 	if c.Agent == "" && c.Team == 0 {
 		return fmt.Errorf("--agent or --team required")
 	}
-	agentID := 0
+	var agentPtr *int
 	if c.Agent != "" {
-		var err error
-		agentID, err = resolveAgent(app, c.Agent)
+		id, err := resolveAgent(app, c.Agent)
 		if err != nil {
 			return err
 		}
+		agentPtr = &id
 	}
-	if _, err := app.Client.Conversations().Assign(c.ID, agentID, c.Team); err != nil {
+	if _, err := app.Client.Conversations().Assign(c.ID, agentPtr, c.Team); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {
@@ -327,10 +327,10 @@ func (c *ConvAssignCmd) Run(app *App) error {
 		return nil
 	}
 	switch {
-	case agentID > 0 && c.Team > 0:
-		fmt.Printf("Conversation %d assigned to agent %d, team %d.\n", c.ID, agentID, c.Team)
-	case agentID > 0:
-		fmt.Printf("Conversation %d assigned to agent %d.\n", c.ID, agentID)
+	case agentPtr != nil && c.Team > 0:
+		fmt.Printf("Conversation %d assigned to agent %d, team %d.\n", c.ID, *agentPtr, c.Team)
+	case agentPtr != nil:
+		fmt.Printf("Conversation %d assigned to agent %d.\n", c.ID, *agentPtr)
 	default:
 		fmt.Printf("Conversation %d assigned to team %d.\n", c.ID, c.Team)
 	}
@@ -388,11 +388,7 @@ type ConvPriorityCmd struct {
 }
 
 func (c *ConvPriorityCmd) Run(app *App) error {
-	value := c.Level
-	if value == "none" {
-		value = ""
-	}
-	if err := app.Client.Conversations().UpdatePriority(c.ID, value); err != nil {
+	if err := app.Client.Conversations().UpdatePriority(c.ID, c.Level); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {
