@@ -58,8 +58,11 @@ func Save(cfg *Config) error {
 		return err
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		return fmt.Errorf("failed to secure config directory: %w", err)
 	}
 
 	path, err := ConfigPath()
@@ -74,6 +77,9 @@ func Save(cfg *Config) error {
 
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
+	}
+	if err := os.Chmod(path, 0600); err != nil {
+		return fmt.Errorf("failed to secure config file: %w", err)
 	}
 
 	return nil

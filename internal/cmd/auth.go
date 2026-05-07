@@ -7,9 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chatwoot/cli/internal/config"
-	"github.com/chatwoot/cli/internal/output"
-	"github.com/chatwoot/cli/internal/sdk"
+	"github.com/chatwoot/chatwoot-cli/internal/config"
+	"github.com/chatwoot/chatwoot-cli/internal/output"
+	"github.com/chatwoot/chatwoot-cli/internal/sdk"
+	"golang.org/x/term"
 )
 
 type AuthCmd struct {
@@ -33,9 +34,10 @@ func (c *AuthLoginCmd) Run(app *App) error {
 		baseURL = "https://app.chatwoot.com"
 	}
 
-	fmt.Print("API Key: ")
-	apiKey, _ := reader.ReadString('\n')
-	apiKey = strings.TrimSpace(apiKey)
+	apiKey, err := readAPIKey(reader)
+	if err != nil {
+		return err
+	}
 
 	fmt.Print("Account ID: ")
 	accountIDStr, _ := reader.ReadString('\n')
@@ -69,6 +71,26 @@ func (c *AuthLoginCmd) Run(app *App) error {
 
 	fmt.Printf("Logged in as %s (%s)\n", profile.Name, profile.Email)
 	return nil
+}
+
+func readAPIKey(reader *bufio.Reader) (string, error) {
+	fmt.Print("API Key: ")
+
+	fd := int(os.Stdin.Fd())
+	if term.IsTerminal(fd) {
+		apiKey, err := term.ReadPassword(fd)
+		fmt.Println()
+		if err != nil {
+			return "", fmt.Errorf("failed to read API key: %w", err)
+		}
+		return strings.TrimSpace(string(apiKey)), nil
+	}
+
+	apiKey, err := reader.ReadString('\n')
+	if err != nil && apiKey == "" {
+		return "", fmt.Errorf("failed to read API key: %w", err)
+	}
+	return strings.TrimSpace(apiKey), nil
 }
 
 type AuthLogoutCmd struct{}
