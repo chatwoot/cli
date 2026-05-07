@@ -120,8 +120,8 @@ Authenticated user profile.
 
 ## Authentication
 
-- Token via environment variable or config file
-- Injected as `X-API-Token` header on all requests
+- Token resolved by callers from `CHATWOOT_API_KEY` or the OS keyring
+- Injected as `api_access_token` header on all requests
 - Token must have `conversation:read`, `message:read`, `message:write` scopes
 
 ## File Organization

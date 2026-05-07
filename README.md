@@ -29,7 +29,7 @@ You'll be prompted for:
 - **API Key** — your agent API access token
 - **Account ID** — your account number
 
-Credentials are validated against the API before saving. Config is stored at `~/.chatwoot/config.yaml`.
+Credentials are validated against the API before saving. Non-secret config is stored at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI, coding agents, or headless environments, set `CHATWOOT_API_KEY` to override the saved keyring token.
 
 ## Interactive TUI
 
@@ -130,7 +130,7 @@ chatwoot auth login                            # Interactive login
 chatwoot auth logout                           # Remove saved credentials
 chatwoot auth status                           # Show current user and instance
 chatwoot config path                           # Print config file path
-chatwoot config view                           # Print config (API key masked)
+chatwoot config view                           # Print config and credential source
 ```
 
 ## Global Flags
