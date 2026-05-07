@@ -2,8 +2,6 @@
 
 Interactive TUI and CLI for [Chatwoot](https://www.chatwoot.com) — manage conversations, send messages, and reply to customers from your terminal.
 
-![chatwoot-cli](.github/chatwoot-cli.webp)
-
 ## Install
 
 ```bash
