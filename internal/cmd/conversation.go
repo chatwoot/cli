@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chatwoot/cli/internal/config"
 	"github.com/chatwoot/cli/internal/output"
 	"github.com/chatwoot/cli/internal/sdk"
 )
@@ -388,7 +389,11 @@ type ConvPriorityCmd struct {
 }
 
 func (c *ConvPriorityCmd) Run(app *App) error {
-	if err := app.Client.Conversations().UpdatePriority(c.ID, c.Level); err != nil {
+	value := c.Level
+	if value == "none" {
+		value = ""
+	}
+	if err := app.Client.Conversations().UpdatePriority(c.ID, value); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {
@@ -409,10 +414,18 @@ func resolveAgent(app *App, ref string) (int, error) {
 		return 0, fmt.Errorf("agent reference required")
 	}
 	if strings.EqualFold(ref, "me") {
-		if app.Config == nil || app.Config.UserID == 0 {
-			return 0, fmt.Errorf("cannot resolve 'me': user_id not cached. Run 'chatwoot auth login' to refresh")
+		if app.Config != nil && app.Config.UserID != 0 {
+			return app.Config.UserID, nil
 		}
-		return app.Config.UserID, nil
+		profile, err := app.Client.Profile().Get()
+		if err != nil {
+			return 0, fmt.Errorf("cannot resolve 'me': %w", err)
+		}
+		if app.Config != nil {
+			app.Config.UserID = profile.ID
+			_ = config.Save(app.Config)
+		}
+		return profile.ID, nil
 	}
 	if id, err := strconv.Atoi(ref); err == nil {
 		return id, nil
