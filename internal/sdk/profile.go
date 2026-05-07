@@ -5,13 +5,14 @@ type ProfileService struct {
 }
 
 type ProfileResponse struct {
-	ID                 int    `json:"id"`
-	Name               string `json:"name"`
-	Email              string `json:"email"`
-	AvailabilityStatus string `json:"availability_status"`
-	Role               string `json:"role"`
-	Thumbnail          string `json:"thumbnail"`
-	AccountID          int    `json:"account_id"`
+	ID                 int                    `json:"id"`
+	Name               string                 `json:"name"`
+	Email              string                 `json:"email"`
+	AvailabilityStatus string                 `json:"availability_status"`
+	Role               string                 `json:"role"`
+	Thumbnail          string                 `json:"thumbnail"`
+	AvatarURL          string                 `json:"avatar_url"`
+	AccountID          int                    `json:"account_id"`
 	UISettings         map[string]interface{} `json:"ui_settings"`
 }
 

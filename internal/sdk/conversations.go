@@ -39,19 +39,19 @@ type ConversationMeta struct {
 }
 
 type Contact struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Email       string `json:"email"`
-	Phone       string `json:"phone_number"`
-	Thumbnail   string `json:"thumbnail"`
-	Identifier  string `json:"identifier"`
+	ID         int    `json:"id"`
+	Name       string `json:"name"`
+	Email      string `json:"email"`
+	Phone      string `json:"phone_number"`
+	Thumbnail  string `json:"thumbnail"`
+	Identifier string `json:"identifier"`
 }
 
 type Agent struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Email       string `json:"email"`
-	Thumbnail   string `json:"thumbnail"`
+	ID                 int    `json:"id"`
+	Name               string `json:"name"`
+	Email              string `json:"email"`
+	Thumbnail          string `json:"thumbnail"`
 	AvailabilityStatus string `json:"availability_status"`
 }
 
@@ -68,10 +68,10 @@ type Inbox struct {
 type ConversationsListResponse struct {
 	Data struct {
 		Meta struct {
-			AllCount      int `json:"all_count"`
-			AssignedCount int `json:"assigned_count"`
+			AllCount        int `json:"all_count"`
+			AssignedCount   int `json:"assigned_count"`
 			UnassignedCount int `json:"unassigned_count"`
-			MineCount     int `json:"mine_count"`
+			MineCount       int `json:"mine_count"`
 		} `json:"meta"`
 		Payload []Conversation `json:"payload"`
 	} `json:"data"`
@@ -82,6 +82,7 @@ type ListOptions struct {
 	InboxID      int
 	AssigneeType string
 	TeamID       int
+	Query        string
 	Page         int
 	Labels       []string
 	SortBy       string
@@ -102,14 +103,14 @@ func (s *ConversationsService) List(opts ListOptions) (*ConversationsListRespons
 	if opts.TeamID > 0 {
 		params.Set("team_id", strconv.Itoa(opts.TeamID))
 	}
+	if opts.Query != "" {
+		params.Set("q", opts.Query)
+	}
 	if opts.Page > 0 {
 		params.Set("page", strconv.Itoa(opts.Page))
 	}
 	for _, label := range opts.Labels {
-		params.Add("labels[]", label)
-	}
-	if opts.SortBy != "" {
-		params.Set("sort_by", opts.SortBy)
+		params.Add("labels", label)
 	}
 
 	var resp ConversationsListResponse
@@ -134,9 +135,9 @@ type ToggleStatusRequest struct {
 }
 
 type ToggleStatusResponse struct {
-	Success           bool   `json:"success"`
-	CurrentStatus     string `json:"current_status"`
-	ConversationID    int    `json:"conversation_id"`
+	Success        bool   `json:"success"`
+	CurrentStatus  string `json:"current_status"`
+	ConversationID int    `json:"conversation_id"`
 }
 
 func (s *ConversationsService) ToggleStatus(id int, status string, snoozedUntil *int64) (*ToggleStatusResponse, error) {
@@ -150,12 +151,14 @@ func (s *ConversationsService) ToggleStatus(id int, status string, snoozedUntil 
 		return nil, err
 	}
 
-	var resp ToggleStatusResponse
+	var resp struct {
+		Payload ToggleStatusResponse `json:"payload"`
+	}
 	if err := s.client.Post(fmt.Sprintf("/conversations/%d/toggle_status", id), bytes.NewReader(jsonBody), &resp); err != nil {
 		return nil, err
 	}
 
-	return &resp, nil
+	return &resp.Payload, nil
 }
 
 type AssignRequest struct {
@@ -163,7 +166,7 @@ type AssignRequest struct {
 	TeamID     int `json:"team_id,omitempty"`
 }
 
-func (s *ConversationsService) Assign(id int, assigneeID int, teamID int) (*Conversation, error) {
+func (s *ConversationsService) Assign(id int, assigneeID int, teamID int) (*User, error) {
 	body := AssignRequest{
 		AssigneeID: assigneeID,
 		TeamID:     teamID,
@@ -174,10 +177,10 @@ func (s *ConversationsService) Assign(id int, assigneeID int, teamID int) (*Conv
 		return nil, err
 	}
 
-	var conv Conversation
-	if err := s.client.Post(fmt.Sprintf("/conversations/%d/assignments", id), bytes.NewReader(jsonBody), &conv); err != nil {
+	var user User
+	if err := s.client.Post(fmt.Sprintf("/conversations/%d/assignments", id), bytes.NewReader(jsonBody), &user); err != nil {
 		return nil, err
 	}
 
-	return &conv, nil
+	return &user, nil
 }
