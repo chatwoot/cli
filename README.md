@@ -73,60 +73,72 @@ chatwoot
 
 ## CLI Usage
 
-For scripting and automation, use commands directly:
+The CLI uses a simple noun grammar:
 
-```
-chatwoot <command> [flags]
-```
+- **Plural noun = list:** `chatwoot convs`, `chatwoot contacts`, `chatwoot agents`
+- **Singular + id + verb:** `chatwoot conv 123 reply "thanks"` — id before verb, the way you'd say it.
+- **`<noun> <id>`** alone is shorthand for view: `chatwoot conv 123` views conversation 123.
 
-### Conversations
-
-```bash
-chatwoot conversation list                     # List open conversations assigned to you
-chatwoot conv list -s resolved                 # List resolved conversations
-chatwoot conv list --assignee all --inbox 5    # All conversations in inbox 5
-chatwoot conv list -l billing,urgent           # Filter by labels
-chatwoot conversation view 42                  # View conversation details
-```
-
-### Messages
+### Conversations — list
 
 ```bash
-chatwoot message list 42                       # Messages in conversation #42
-chatwoot msg list 42 --before 1000             # Messages before ID 1000
+chatwoot convs                                 # Open conversations assigned to you (default)
+chatwoot convs -s resolved                     # Resolved conversations
+chatwoot convs --assignee all --inbox 5        # All conversations in inbox 5
+chatwoot convs -l billing,urgent               # Filter by labels
+chatwoot convs --query "refund"                # Search by message content
+```
+
+### Conversations — act on one
+
+```bash
+chatwoot conv 123                              # View (default)
+chatwoot conv 123 messages                     # List messages
+chatwoot conv 123 reply "Thanks, looking into it"
+chatwoot conv 123 reply "internal note" --private
+chatwoot conv 123 resolve                      # Mark resolved
+chatwoot conv 123 open                         # Set status to open
+chatwoot conv 123 pending                      # Set status to pending
+chatwoot conv 123 snooze                       # Snooze until next reply
+chatwoot conv 123 snooze --until 24h           # Or 7d, 2026-05-10
+chatwoot conv 123 assign --agent me            # Assign to yourself
+chatwoot conv 123 assign --agent alice         # By name (case-insensitive substring)
+chatwoot conv 123 assign --agent 42            # By agent ID
+chatwoot conv 123 assign --team 7              # Assign to a team
+chatwoot conv 123 unassign
+chatwoot conv 123 label billing,urgent         # Set labels (replaces existing)
+chatwoot conv 123 priority urgent              # urgent | high | medium | low | none
 ```
 
 ### Contacts
 
 ```bash
-chatwoot contact list                          # List contacts
-chatwoot contact view 123                      # View contact details
-chatwoot contact search "john"                 # Search by name, email, or phone
+chatwoot contacts                              # List contacts
+chatwoot contacts --search "john"              # Search by name, email, or phone
+chatwoot contact 456                           # View
+chatwoot contact 456 conversations             # Conversations for this contact
 ```
 
-### Inboxes
+### Inboxes, agents, labels, teams
 
 ```bash
-chatwoot inbox list                            # List all inboxes
-chatwoot inbox view 5                          # View inbox details
-```
-
-### Agents
-
-```bash
-chatwoot agent list                            # List all agents
+chatwoot inboxes                               # List inboxes
+chatwoot inbox 5                               # View one
+chatwoot agents                                # List agents
+chatwoot labels                                # List account-level labels
+chatwoot teams                                 # List teams
 ```
 
 ### Profile
 
 ```bash
-chatwoot profile                               # Show your profile
+chatwoot me                                    # Show your profile
 ```
 
-### Auth & Config
+### Auth & config
 
 ```bash
-chatwoot auth login                            # Interactive login
+chatwoot auth login                            # Interactive login (caches user_id)
 chatwoot auth logout                           # Remove saved credentials
 chatwoot auth status                           # Show current user and instance
 chatwoot config path                           # Print config file path
@@ -157,19 +169,19 @@ ID   Status  Contact       Assignee       Inbox
 **JSON** — full API response, pipe to `jq`:
 
 ```bash
-chatwoot conversation list -o json | jq '.[].id'
+chatwoot convs -o json | jq '.data.payload[].id'
 ```
 
 **CSV** — for spreadsheets and data processing:
 
 ```bash
-chatwoot agent list -o csv > agents.csv
+chatwoot agents -o csv > agents.csv
 ```
 
 **Quiet** — IDs only, one per line:
 
 ```bash
-chatwoot conversation list -q | xargs -I{} chatwoot conversation view {}
+chatwoot convs -q | xargs -I{} chatwoot conv view {}
 ```
 
 ## License

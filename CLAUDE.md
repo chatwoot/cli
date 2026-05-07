@@ -8,7 +8,9 @@ CLI and interactive TUI for the Chatwoot API.
 go build ./cmd/chatwoot/        # build binary
 mise run dev                     # auto-rebuild on file changes
 ./chatwoot                       # launch interactive TUI (requires auth)
-./chatwoot conversation list     # CLI mode
+./chatwoot convs                 # CLI mode (plural noun = list)
+./chatwoot conv 123              # `conv 123` = view conv 123
+./chatwoot conv 123 reply "hi"   # id-first verb dispatch
 ```
 
 ## Project Structure
@@ -34,8 +36,12 @@ internal/
 ## Key Conventions
 
 - Kong commands: define flags/args as struct fields with tags, implement `Run(app *App) error`
+- Grammar: plural noun = list (`ConvsCmd`), singular noun = parent struct with verb subcommands; each verb's struct holds its own `arg:""` ID. Kong forbids mixing `arg:""` and `cmd:""` siblings, so internally the verb comes before the ID (`conv reply 123 "hi"`).
+- `cmd/chatwoot/main.go` runs `rewriteIDFirstGrammar` to swap `<noun> <id> <verb>` → `<noun> <verb> <id>` before Kong parses, so users get to type the natural id-first form. A custom `kong.Help` printer flips the help output to match.
+- `default:"withargs"` on the View subcommand routes `chatwoot conv 123` to `conv view 123`.
 - `skipAuth` in main.go: auth/config commands bypass API client creation
 - `GetRaw()` on Client: for non-account-scoped endpoints (e.g. `/api/v1/profile`)
+- `Config.UserID` is cached on `auth login` so `conv assign N --agent me` can resolve without a profile fetch
 - TUI layout: lipgloss `Width(w)` sets content width; borders add +2 visual cols — always account for this
 
 ## Chatwoot API Quirks
