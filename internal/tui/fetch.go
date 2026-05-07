@@ -76,7 +76,6 @@ func fetchConversations(client *sdk.Client, status, assigneeType string, page in
 			Status:       status,
 			AssigneeType: assigneeType,
 			Page:         page,
-			SortBy:       "last_activity_at_desc",
 		})
 		if err != nil {
 			return conversationsMsg{err: err}

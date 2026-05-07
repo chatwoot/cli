@@ -13,10 +13,11 @@ type MessageCmd struct {
 type MessageListCmd struct {
 	ConversationID int `arg:"" help:"Conversation ID."`
 	Before         int `help:"Messages before this message ID."`
+	After          int `help:"Messages after this message ID."`
 }
 
 func (c *MessageListCmd) Run(app *App) error {
-	resp, err := app.Client.Messages(c.ConversationID).List(c.Before)
+	resp, err := app.Client.Messages(c.ConversationID).List(c.Before, c.After)
 	if err != nil {
 		return err
 	}

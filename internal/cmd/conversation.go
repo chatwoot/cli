@@ -20,7 +20,7 @@ type ConversationListCmd struct {
 	Assignee string   `default:"me" help:"Filter: me, unassigned, all."`
 	Team     int      `help:"Filter by team ID."`
 	Label    []string `short:"l" help:"Filter by labels."`
-	Sort     string   `default:"latest" help:"Sort: latest, created_at, priority."`
+	Query    string   `help:"Search conversations by message content."`
 	Page     int      `short:"p" default:"1" help:"Page number."`
 }
 
@@ -30,8 +30,8 @@ func (c *ConversationListCmd) Run(app *App) error {
 		InboxID:      c.Inbox,
 		AssigneeType: c.Assignee,
 		TeamID:       c.Team,
+		Query:        c.Query,
 		Labels:       c.Label,
-		SortBy:       c.Sort,
 		Page:         c.Page,
 	})
 	if err != nil {

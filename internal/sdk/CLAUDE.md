@@ -78,15 +78,16 @@ Authenticated user profile.
 
 **Filtering:**
 - Conversations: `assignee_type` ("me", "unassigned", all), `status` (open/resolved/pending/snoozed)
-- Sorting: `sort_by=last_activity_at_desc` for reverse chronological
-- Search: text-based filtering via `/search` endpoint (not yet implemented)
+- Conversations: `q` filters by message content, `labels` filters by label
+- Contacts: `sort` supports name/email/phone_number/last_activity_at, with `-` prefix for descending
+- Messages: `before` and `after` cursor parameters are both supported
 
 **Quirks:**
 - Contacts list meta `current_page` returns **string**, not int
 - Messages list meta `agent_last_seen_at` can be string
 - Single contact GET wraps in `{payload: {contact}}` (payload field)
 - Agents list returns **bare array**, not wrapped in payload
-- Profile endpoint is `/api/v1/profile` (account-scoped), accessed via `GetRaw()`
+- Profile endpoint is `/api/v1/profile` (non-account-scoped), accessed via `GetRaw()`
 
 ## Request/Response Structure
 

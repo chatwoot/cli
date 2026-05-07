@@ -15,12 +15,14 @@ type ContactCmd struct {
 }
 
 type ContactListCmd struct {
-	Page int `short:"p" default:"1" help:"Page number."`
+	Page int    `short:"p" default:"1" help:"Page number."`
+	Sort string `help:"Sort by name, email, phone_number, last_activity_at, or prefix with '-' for descending."`
 }
 
 func (c *ContactListCmd) Run(app *App) error {
 	resp, err := app.Client.Contacts().List(sdk.ContactsListOptions{
 		Page: c.Page,
+		Sort: c.Sort,
 	})
 	if err != nil {
 		return err
@@ -83,12 +85,14 @@ func (c *ContactViewCmd) Run(app *App) error {
 type ContactSearchCmd struct {
 	Query string `arg:"" help:"Search query (name, email, or phone)."`
 	Page  int    `short:"p" default:"1" help:"Page number."`
+	Sort  string `help:"Sort by name, email, phone_number, last_activity_at, or prefix with '-' for descending."`
 }
 
 func (c *ContactSearchCmd) Run(app *App) error {
 	resp, err := app.Client.Contacts().Search(sdk.ContactsSearchOptions{
 		Query: c.Query,
 		Page:  c.Page,
+		Sort:  c.Sort,
 	})
 	if err != nil {
 		return err
