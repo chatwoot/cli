@@ -37,7 +37,7 @@ func (p *Printer) PrintTable(headers []string, rows [][]string) {
 	if p.Quiet {
 		for _, row := range rows {
 			if len(row) > 0 {
-				fmt.Fprintln(p.Writer, row[0])
+				_, _ = fmt.Fprintln(p.Writer, row[0])
 			}
 		}
 		return
@@ -81,17 +81,17 @@ func (p *Printer) PrintDetail(pairs []KeyValue) {
 	}
 
 	for _, kv := range pairs {
-		fmt.Fprintf(p.Writer, "%-*s  %s\n", maxKey, kv.Key+":", kv.Value)
+		_, _ = fmt.Fprintf(p.Writer, "%-*s  %s\n", maxKey, kv.Key+":", kv.Value)
 	}
 }
 
 func (p *Printer) tableAsText(headers []string, rows [][]string) {
 	w := tabwriter.NewWriter(p.Writer, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, strings.Join(headers, "\t"))
+	_, _ = fmt.Fprintln(w, strings.Join(headers, "\t"))
 	for _, row := range rows {
-		fmt.Fprintln(w, strings.Join(row, "\t"))
+		_, _ = fmt.Fprintln(w, strings.Join(row, "\t"))
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 func (p *Printer) tableAsJSON(headers []string, rows [][]string) {

@@ -372,7 +372,7 @@ func newContractClient(t *testing.T, handler func(*testing.T, *http.Request, *op
 		if err != nil {
 			t.Fatalf("failed to read request body: %v", err)
 		}
-		r.Body.Close()
+		_ = r.Body.Close()
 		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 		input := validateContractRequest(t, r)
