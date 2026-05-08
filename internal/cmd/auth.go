@@ -137,7 +137,12 @@ func (c *AuthLogoutCmd) Run(app *App) error {
 
 type AuthStatusCmd struct{}
 
-func (c *AuthStatusCmd) Run(app *App) error {
+func (c *AuthStatusCmd) Run(app *App) error { return runAuthStatus(app) }
+
+// runAuthStatus is the shared implementation behind `auth status`, `me`, and
+// `whoami`. They all answer "who am I and where am I logged in?" so they
+// share output. It also opportunistically refreshes the cached UserID.
+func runAuthStatus(app *App) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -148,7 +153,7 @@ func (c *AuthStatusCmd) Run(app *App) error {
 		return nil
 	}
 
-	apiKey, _, err := config.ResolveAPIKey(cfg)
+	apiKey, source, err := config.ResolveAPIKey(cfg)
 	if err != nil {
 		return fmt.Errorf("not authenticated: %w", err)
 	}
@@ -159,13 +164,21 @@ func (c *AuthStatusCmd) Run(app *App) error {
 		return fmt.Errorf("failed to fetch profile: %w", err)
 	}
 
+	// Self-heal the cached UserID for older configs that predate the cache.
+	if cfg.UserID != profile.ID {
+		cfg.UserID = profile.ID
+		_ = config.Save(cfg)
+	}
+
 	app.Printer.PrintDetail([]output.KeyValue{
 		{Key: "Instance", Value: cfg.BaseURL},
 		{Key: "Account", Value: strconv.Itoa(cfg.AccountID)},
+		{Key: "User ID", Value: strconv.Itoa(profile.ID)},
 		{Key: "Name", Value: profile.Name},
 		{Key: "Email", Value: profile.Email},
 		{Key: "Role", Value: profile.Role},
 		{Key: "Availability", Value: profile.AvailabilityStatus},
+		{Key: "Credential", Value: string(source)},
 	})
 
 	return nil

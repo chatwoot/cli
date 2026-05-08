@@ -1,31 +1,6 @@
 package cmd
 
-import (
-	"strconv"
-
-	"github.com/chatwoot/cli/internal/output"
-)
-
-// MeCmd is `chatwoot me` — show the authenticated user's profile.
+// MeCmd is `chatwoot me` — alias of `chatwoot auth status`.
 type MeCmd struct{}
 
-func (c *MeCmd) Run(app *App) error {
-	profile, err := app.Client.Profile().Get()
-	if err != nil {
-		return err
-	}
-
-	if app.Printer.Format == "json" && !app.Printer.Quiet {
-		app.Printer.PrintJSON(profile)
-		return nil
-	}
-
-	app.Printer.PrintDetail([]output.KeyValue{
-		{Key: "ID", Value: strconv.Itoa(profile.ID)},
-		{Key: "Name", Value: profile.Name},
-		{Key: "Email", Value: profile.Email},
-		{Key: "Role", Value: profile.Role},
-		{Key: "Availability", Value: profile.AvailabilityStatus},
-	})
-	return nil
-}
+func (c *MeCmd) Run(app *App) error { return runAuthStatus(app) }
