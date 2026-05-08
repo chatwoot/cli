@@ -1,0 +1,76 @@
+# See https://goreleaser.com for full reference.
+version: 2
+
+project_name: chatwoot
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: chatwoot
+    main: ./cmd/chatwoot
+    binary: chatwoot
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    # Names match what `uname -s`/`uname -m` produce so install.sh can map
+    # platform → asset directly: chatwoot_0.1.0_Darwin_arm64.tar.gz, etc.
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- if eq .Os "darwin" }}Darwin
+      {{- else if eq .Os "linux" }}Linux
+      {{- else if eq .Os "windows" }}Windows
+      {{- else }}{{ .Os }}{{ end }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+
+release:
+  github:
+    owner: chatwoot
+    name: cli
+  draft: false
+  prerelease: auto
+  mode: replace
+  # The install script is bundled with each release so users can fetch a
+  # pinned copy via /releases/latest/download/install.sh as well as the
+  # always-fresh raw URL on main.
+  extra_files:
+    - glob: ./install.sh

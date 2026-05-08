@@ -4,15 +4,26 @@ CLI for [Chatwoot](https://www.chatwoot.com) — manage conversations, send repl
 
 ## Install
 
+**macOS / Linux** — install script (detects OS/arch, fetches the matching release binary, verifies SHA256):
+
 ```bash
-go install github.com/chatwoot/cli/cmd/chatwoot@latest
+curl -fsSL https://chwt.app/install-cli | sh
 ```
 
-Or build from source:
+The script installs to `~/.local/bin/chatwoot` by default. Override with environment variables:
 
 ```bash
-git clone https://github.com/chatwoot/cli.git
-cd cli
+CHATWOOT_VERSION=v0.2.0 CHATWOOT_INSTALL_DIR=/usr/local/bin curl -fsSL https://chwt.app/install-cli | sh
+```
+
+**Windows** — download `chatwoot_<version>_Windows_x86_64.zip` from the [releases page](https://github.com/chatwoot/cli/releases/latest) and extract `chatwoot.exe`.
+
+**From source** — requires Go 1.22+:
+
+```bash
+go install github.com/chatwoot/cli/cmd/chatwoot@latest
+# or
+git clone https://github.com/chatwoot/cli.git && cd cli
 go build -o chatwoot ./cmd/chatwoot/
 ```
 
