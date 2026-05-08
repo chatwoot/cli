@@ -1,4 +1,4 @@
-# chatwoot-cli
+# Chatwoot CLI
 
 CLI for [Chatwoot](https://www.chatwoot.com) — manage conversations, send replies, and run common workflows from your terminal.
 
