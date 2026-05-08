@@ -22,7 +22,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version-file: go.mod
           cache: true
 
       - name: go vet
@@ -43,11 +43,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version-file: go.mod
           cache: true
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        # v8 defaults to golangci-lint v2.x, which supports recent Go (1.25+).
+        uses: golangci/golangci-lint-action@v8
         with:
           version: latest
           args: --timeout=5m
