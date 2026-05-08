@@ -21,6 +21,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -race -count=1 ./...
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
