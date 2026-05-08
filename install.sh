@@ -29,7 +29,7 @@ if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   C_YELLOW=$(printf '\033[33m')
   C_RED=$(printf '\033[31m')
 else
-  C_RESET= C_DIM= C_BOLD= C_CYAN= C_GREEN= C_YELLOW= C_RED=
+  C_RESET=''; C_DIM=''; C_BOLD=''; C_CYAN=''; C_GREEN=''; C_YELLOW=''; C_RED=''
 fi
 
 step() { printf '  %s→%s %s\n' "$C_CYAN" "$C_RESET" "$*"; }
@@ -147,6 +147,7 @@ case ":$PATH:" in
     printf '\n'
     warn "${INSTALL_DIR} is not on your PATH"
     printf '    add this to your shell profile (~/.zshrc, ~/.bashrc, etc.):\n\n'
+    # shellcheck disable=SC2016  # literal $PATH is intentional here
     printf '      %sexport PATH="%s:$PATH"%s\n\n' "$C_DIM" "$INSTALL_DIR" "$C_RESET"
     ;;
 esac
@@ -180,7 +181,7 @@ case "${SHELL##*/}" in
 esac
 
 printf '\n  %sSet up tab completion for %s?%s [Y/n] ' "$C_BOLD" "$shell_kind" "$C_RESET"
-if ! read response < /dev/tty; then
+if ! read -r response < /dev/tty; then
   echo
   print_next_steps
   exit 0
