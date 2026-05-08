@@ -1,6 +1,7 @@
 [tools]
 go = "latest"
 watchexec = "latest"
+"aqua:golangci/golangci-lint" = "latest"
 
 [env]
 _.path = ["{{config_root}}/bin"]
@@ -12,6 +13,10 @@ run = "mkdir -p ./bin && go build -o ./bin/chatwoot ./cmd/chatwoot/"
 [tasks.dev]
 description = "Auto-build on Go file changes"
 run = "mkdir -p ./bin && watchexec -e go --restart --debounce 300 -- go build -o ./bin/chatwoot ./cmd/chatwoot/"
+
+[tasks.lint]
+description = "Run golangci-lint across the module"
+run = "golangci-lint run ./..."
 
 [tasks."sdk:update-swagger"]
 description = "Update the pinned Chatwoot application Swagger snapshot"
