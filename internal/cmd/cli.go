@@ -40,6 +40,7 @@ type CLI struct {
 	Config ConfigCmd `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
 
 	Completion kongcompletion.Completion `cmd:"" help:"Print shell completion setup."`
+	Version    VersionCmd                `cmd:"" help:"Print the CLI version."`
 
-	Version kong.VersionFlag `help:"Show version."`
+	VersionFlag kong.VersionFlag `name:"version" help:"Print the CLI version."`
 }

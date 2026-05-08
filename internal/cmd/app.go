@@ -13,15 +13,16 @@ type App struct {
 	Client  *sdk.Client
 	Printer *output.Printer
 	Config  *config.Config
+	Version string
 }
 
 // NewApp creates an App from the parsed CLI flags.
 // Commands that don't need auth (auth login/logout, config) pass skipAuth=true.
-func NewApp(cli *CLI, skipAuth bool) (*App, error) {
+func NewApp(cli *CLI, skipAuth bool, version string) (*App, error) {
 	printer := output.NewPrinter(cli.Output, cli.NoColor, cli.Quiet)
 
 	if skipAuth {
-		return &App{Printer: printer}, nil
+		return &App{Printer: printer, Version: version}, nil
 	}
 
 	cfg, err := config.Load()
@@ -48,5 +49,6 @@ func NewApp(cli *CLI, skipAuth bool) (*App, error) {
 		Client:  client,
 		Printer: printer,
 		Config:  cfg,
+		Version: version,
 	}, nil
 }

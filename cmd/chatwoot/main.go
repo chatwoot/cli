@@ -64,9 +64,10 @@ func main() {
 		strings.HasPrefix(cmdStr, "config") ||
 		strings.HasPrefix(cmdStr, "completion") ||
 		cmdStr == "me" ||
-		cmdStr == "whoami"
+		cmdStr == "whoami" ||
+		cmdStr == "version"
 
-	app, err := cmd.NewApp(&cli, skipAuth)
+	app, err := cmd.NewApp(&cli, skipAuth, version)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
