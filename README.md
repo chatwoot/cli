@@ -40,6 +40,17 @@ You'll be prompted for:
 
 Credentials are validated against the API before saving. Non-secret config is stored at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI, coding agents, or headless environments, set `CHATWOOT_API_KEY` to override the saved keyring token.
 
+## Agent Skill
+
+If you use Claude Code, Cursor, or another AI coding assistant, install the agent skill so it knows the CLI's grammar, JSON shapes, and safety rules before sending customer-visible replies:
+
+```bash
+npx skills add chatwoot/cli              # current project
+npx skills add chatwoot/cli --global     # all projects
+```
+
+Agents run non-interactively, so authenticate once with `chatwoot auth login` (or set `CHATWOOT_API_KEY` for sandboxed environments). See the [agent skill docs](https://www.chatwoot.com/docs/cli/agent-skill) for details.
+
 ## Shell Completions
 
 The install script offers to set this up interactively. To do it manually, write the completion code to your shell's standard auto-load location:
