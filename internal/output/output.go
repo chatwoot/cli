@@ -57,7 +57,9 @@ func (p *Printer) PrintTable(headers []string, rows [][]string) {
 func (p *Printer) PrintJSON(v interface{}) {
 	enc := json.NewEncoder(p.Writer)
 	enc.SetIndent("", "  ")
-	enc.Encode(v)
+	if err := enc.Encode(v); err != nil {
+		fmt.Fprintln(os.Stderr, "output: json encode failed:", err)
+	}
 }
 
 // PrintDetail renders key-value pairs for a single record view.
@@ -108,9 +110,14 @@ func (p *Printer) tableAsJSON(headers []string, rows [][]string) {
 
 func (p *Printer) tableAsCSV(headers []string, rows [][]string) {
 	w := csv.NewWriter(p.Writer)
-	w.Write(headers)
+	// Errors are typically broken-pipe (downstream `| head`); surface only
+	// the final flush error if any.
+	_ = w.Write(headers)
 	for _, row := range rows {
-		w.Write(row)
+		_ = w.Write(row)
 	}
 	w.Flush()
+	if err := w.Error(); err != nil {
+		fmt.Fprintln(os.Stderr, "output: csv write failed:", err)
+	}
 }
