@@ -118,3 +118,57 @@ note: $INSTALL_DIR is not on your PATH.
 EOF
     ;;
 esac
+
+# ---------------------------------------------------------------------------
+# Optional: set up tab completion (interactive only)
+# ---------------------------------------------------------------------------
+# Skip silently when not running on a real terminal (e.g. CI, Dockerfile).
+# stdout is checked because `curl ... | sh` keeps it as a TTY but rebinds stdin
+# to the curl pipe — we read input from /dev/tty instead.
+if [ ! -t 1 ] || [ ! -r /dev/tty ]; then
+  exit 0
+fi
+
+case "${SHELL##*/}" in
+  bash) shell_kind=bash ;;
+  zsh)  shell_kind=zsh ;;
+  fish) shell_kind=fish ;;
+  *)
+    log "tab completion: run '$BINARY completion --help' to set up"
+    exit 0
+    ;;
+esac
+
+printf 'install: set up tab completion for %s? [Y/n] ' "$shell_kind"
+if ! read response < /dev/tty; then
+  echo
+  exit 0
+fi
+case "$response" in
+  n|N|no|NO|No) log "skipped completion setup"; exit 0 ;;
+esac
+
+case "$shell_kind" in
+  bash)
+    dir="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
+    mkdir -p "$dir"
+    "$INSTALL_DIR/$BINARY" completion bash -c > "$dir/$BINARY"
+    log "installed bash completion to $dir/$BINARY (restart your shell to enable)"
+    ;;
+  fish)
+    dir="${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions"
+    mkdir -p "$dir"
+    "$INSTALL_DIR/$BINARY" completion fish -c > "$dir/$BINARY.fish"
+    log "installed fish completion to $dir/$BINARY.fish"
+    ;;
+  zsh)
+    rc="${ZDOTDIR:-$HOME}/.zshrc"
+    line="source <($BINARY completion zsh -c)"
+    if [ -f "$rc" ] && grep -Fq "$line" "$rc"; then
+      log "zsh completion already in $rc"
+    else
+      printf '\n# chatwoot CLI completion\n%s\n' "$line" >> "$rc"
+      log "added zsh completion source to $rc (restart shell or 'source $rc' to enable)"
+    fi
+    ;;
+esac

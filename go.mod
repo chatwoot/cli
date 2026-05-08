@@ -1,13 +1,11 @@
 module github.com/chatwoot/cli
 
-go 1.24.2
-
-toolchain go1.24.11
+go 1.25
 
 require (
 	github.com/alecthomas/kong v1.14.0
 	github.com/getkin/kin-openapi v0.133.0
-	github.com/willabides/kongplete v0.4.0
+	github.com/jotaen/kong-completion v0.0.14
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/term v0.31.0
 	gopkg.in/yaml.v3 v3.0.1

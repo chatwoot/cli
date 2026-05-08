@@ -11,7 +11,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/chatwoot/cli/internal/cmd"
-	"github.com/willabides/kongplete"
+	kongcompletion "github.com/jotaen/kong-completion"
 )
 
 var version = "dev"
@@ -51,16 +51,20 @@ func main() {
 	)
 
 	// Enable shell completions (must be called before Parse)
-	kongplete.Complete(parser)
+	kongcompletion.Register(parser)
 
 	ctx, err := parser.Parse(args)
 	parser.FatalIfErrorf(err)
 
-	// Commands that don't require authentication
+	// Commands that don't require authentication. `me` and `whoami` are
+	// aliases of `auth status` — they load config themselves and report
+	// "not logged in" gracefully.
 	cmdStr := ctx.Command()
 	skipAuth := strings.HasPrefix(cmdStr, "auth") ||
 		strings.HasPrefix(cmdStr, "config") ||
-		strings.HasPrefix(cmdStr, "install-completions")
+		strings.HasPrefix(cmdStr, "completion") ||
+		cmdStr == "me" ||
+		cmdStr == "whoami"
 
 	app, err := cmd.NewApp(&cli, skipAuth)
 	if err != nil {

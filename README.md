@@ -18,7 +18,7 @@ CHATWOOT_VERSION=v0.2.0 CHATWOOT_INSTALL_DIR=/usr/local/bin curl -fsSL https://c
 
 **Windows** — download `chatwoot_<version>_Windows_x86_64.zip` from the [releases page](https://github.com/chatwoot/cli/releases/latest) and extract `chatwoot.exe`.
 
-**From source** — requires Go 1.22+:
+**From source** — requires Go 1.25+:
 
 ```bash
 go install github.com/chatwoot/cli/cmd/chatwoot@latest
@@ -39,6 +39,23 @@ You'll be prompted for:
 - **Account ID** — your account number
 
 Credentials are validated against the API before saving. Non-secret config is stored at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI, coding agents, or headless environments, set `CHATWOOT_API_KEY` to override the saved keyring token.
+
+## Shell Completions
+
+The install script offers to set this up interactively. To do it manually, write the completion code to your shell's standard auto-load location:
+
+```bash
+# bash
+chatwoot completion bash -c > ~/.local/share/bash-completion/completions/chatwoot
+
+# fish
+chatwoot completion fish -c > ~/.config/fish/completions/chatwoot.fish
+
+# zsh — append a source line to your .zshrc
+echo 'source <(chatwoot completion zsh -c)' >> ~/.zshrc
+```
+
+Restart your shell (or `source` the rc file) and tab-completion will work for commands, subcommands, and flags. Run `chatwoot completion --help` for details.
 
 ## CLI Usage
 

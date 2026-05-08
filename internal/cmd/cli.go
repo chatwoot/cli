@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/alecthomas/kong"
-	"github.com/willabides/kongplete"
+	kongcompletion "github.com/jotaen/kong-completion"
 )
 
 // CLI is the root Kong struct defining the entire command tree.
@@ -31,14 +31,15 @@ type CLI struct {
 	Contact ContactCmd `cmd:"" help:"View a contact."`
 	Inbox   InboxCmd   `cmd:"" help:"View an inbox."`
 
-	// Workflow.
-	Me MeCmd `cmd:"" help:"Show your profile."`
+	// Workflow. `me` and `whoami` are aliases of `auth status`.
+	Me     MeCmd     `cmd:"" help:"Show identity and connection (alias of 'auth status')."`
+	Whoami WhoamiCmd `cmd:"" help:"Show identity and connection (alias of 'auth status')."`
 
 	// Setup.
 	Auth   AuthCmd   `cmd:"" help:"Login, logout, and status."`
 	Config ConfigCmd `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
 
-	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions."`
+	Completion kongcompletion.Completion `cmd:"" help:"Print shell completion setup."`
 
 	Version kong.VersionFlag `help:"Show version."`
 }
