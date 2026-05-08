@@ -1,14 +1,14 @@
 # chatwoot-cli
 
-CLI and interactive TUI for the Chatwoot API.
+CLI for the Chatwoot API.
 
 ## Build & Run
 
 ```bash
 go build ./cmd/chatwoot/        # build binary
 mise run dev                     # auto-rebuild on file changes
-./chatwoot                       # launch interactive TUI (requires auth)
-./chatwoot convs                 # CLI mode (plural noun = list)
+./chatwoot                       # no args → prints help
+./chatwoot convs                 # plural noun = list
 ./chatwoot conv 123              # `conv 123` = view conv 123
 ./chatwoot conv 123 reply "hi"   # id-first verb dispatch
 ```
@@ -16,19 +16,17 @@ mise run dev                     # auto-rebuild on file changes
 ## Project Structure
 
 ```
-cmd/chatwoot/main.go       Entry point: no args → TUI, otherwise Kong CLI
+cmd/chatwoot/main.go       Entry point: pre-parses id-first grammar, then Kong
 internal/
   sdk/                     HTTP client + service modules (conversations, messages, contacts, etc.)
   cmd/                     Kong command structs with Run(app *App) error
   config/                  YAML config at ~/.chatwoot/config.yaml
   output/                  Printer: text (tabwriter), JSON, CSV formats + quiet mode
-  tui/                     Bubbletea interactive TUI
 ```
 
 ## Architecture
 
 - **CLI framework**: Kong (alecthomas/kong) — struct-based command tree with tags
-- **TUI framework**: Bubbletea + Lipgloss + Bubbles
 - **SDK pattern**: `client.Conversations()`, `client.Contacts()`, etc. return service objects
 - **Command pattern**: each command is a struct with `Run(app *App) error`
 - **App struct** holds `Client`, `Printer`, `Config` — passed to all commands
@@ -41,8 +39,7 @@ internal/
 - `default:"withargs"` on the View subcommand routes `chatwoot conv 123` to `conv view 123`.
 - `skipAuth` in main.go: auth/config commands bypass API client creation
 - `GetRaw()` on Client: for non-account-scoped endpoints (e.g. `/api/v1/profile`)
-- `Config.UserID` is cached on `auth login` so `conv assign N --agent me` can resolve without a profile fetch
-- TUI layout: lipgloss `Width(w)` sets content width; borders add +2 visual cols — always account for this
+- `Config.UserID` is cached on `auth login` and lazy-fetched on first `assign --agent me` so subsequent calls don't need a profile request
 
 ## Chatwoot API Quirks
 

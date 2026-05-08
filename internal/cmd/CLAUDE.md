@@ -1,6 +1,6 @@
 # internal/cmd - Kong CLI Commands
 
-Kong command definitions for CLI mode (non-TUI). Each command is a struct with fields representing flags/args, implementing `Run(app *App) error` to execute the command logic.
+Kong command definitions. Each command is a struct with fields representing flags/args, implementing `Run(app *App) error` to execute the command logic.
 
 ## Structure
 
@@ -127,5 +127,4 @@ In `main.go`, `auth` and `config` commands are marked with `skipAuth: true` — 
 
 - Implement `conversation create` for ticket creation
 - Add bulk export (all conversations to CSV)
-- Implement `message send` via CLI (currently reply editor is TUI-only)
 - Add filtering by label, agent, date range

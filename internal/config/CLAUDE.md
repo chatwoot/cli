@@ -31,7 +31,7 @@ In `main.go`:
 ```go
 cfg, err := config.Load()
 if err != nil {
-    // Handle missing/invalid config for CLI/TUI
+    // Handle missing/invalid config
 }
 
 apiKey, _, err := config.ResolveAPIKey(cfg)
@@ -40,11 +40,6 @@ if err != nil {
 }
 
 client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
-```
-
-In TUI:
-```go
-tui.Run(client, cfg.AccountID, version)
 ```
 
 ## Validation Rules

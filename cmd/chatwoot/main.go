@@ -11,9 +11,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/chatwoot/cli/internal/cmd"
-	"github.com/chatwoot/cli/internal/config"
-	"github.com/chatwoot/cli/internal/sdk"
-	"github.com/chatwoot/cli/internal/tui"
 	"github.com/willabides/kongplete"
 )
 
@@ -38,36 +35,16 @@ var (
 )
 
 func main() {
-	// No args → launch interactive TUI
-	if len(os.Args) == 1 {
-		cfg, err := config.Load()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		if cfg == nil || !cfg.IsValid() {
-			fmt.Fprintln(os.Stderr, "Not authenticated. Run: chatwoot auth login")
-			os.Exit(1)
-		}
-		apiKey, _, err := config.ResolveAPIKey(cfg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: not authenticated: %v\n", err)
-			os.Exit(1)
-		}
-		client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
-		if err := tui.Run(client, cfg.AccountID, version); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		return
+	args := os.Args[1:]
+	if len(args) == 0 {
+		args = []string{"--help"}
 	}
-
-	args := rewriteIDFirstGrammar(os.Args[1:])
+	args = rewriteIDFirstGrammar(args)
 
 	var cli cmd.CLI
 	parser := kong.Must(&cli,
 		kong.Name("chatwoot"),
-		kong.Description("CLI and interactive TUI for Chatwoot."),
+		kong.Description("CLI for Chatwoot."),
 		kong.Vars{"version": version},
 		kong.UsageOnError(),
 		kong.Help(idFirstHelpPrinter),
