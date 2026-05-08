@@ -5,8 +5,9 @@
 #   curl -fsSL https://chwt.app/install-cli | sh
 #
 # Environment:
-#   CHATWOOT_VERSION   pin a specific version, e.g. "v0.2.1" (default: latest)
+#   CHATWOOT_VERSION      pin a specific version, e.g. "v0.2.1" (default: latest)
 #   CHATWOOT_INSTALL_DIR  install location (default: $HOME/.local/bin)
+#   NO_COLOR              set to disable color/banner output
 
 set -eu
 
@@ -15,8 +16,40 @@ BINARY="chatwoot"
 INSTALL_DIR="${CHATWOOT_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${CHATWOOT_VERSION:-latest}"
 
-err() { printf 'install: %s\n' "$*" >&2; exit 1; }
-log() { printf 'install: %s\n' "$*"; }
+# ---------------------------------------------------------------------------
+# Pretty output
+# ---------------------------------------------------------------------------
+# Colors only when stdout is a TTY and NO_COLOR isn't set.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  C_RESET=$(printf '\033[0m')
+  C_DIM=$(printf '\033[2m')
+  C_BOLD=$(printf '\033[1m')
+  C_CYAN=$(printf '\033[36m')
+  C_GREEN=$(printf '\033[32m')
+  C_YELLOW=$(printf '\033[33m')
+  C_RED=$(printf '\033[31m')
+else
+  C_RESET= C_DIM= C_BOLD= C_CYAN= C_GREEN= C_YELLOW= C_RED=
+fi
+
+step() { printf '  %s→%s %s\n' "$C_CYAN" "$C_RESET" "$*"; }
+ok()   { printf '  %s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+warn() { printf '  %s!%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
+err()  { printf '  %s✗%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; exit 1; }
+
+banner() {
+  [ -t 1 ] || return 0
+  [ -z "${NO_COLOR:-}" ] || return 0
+  printf '\n%s' "$C_CYAN"
+  cat <<'EOF'
+  ┏━┛┃ ┃┏━┃━┏┛┃┃┃┏━┃┏━┃━┏┛  ┏━┛┃  ┛
+  ┃  ┏━┃┏━┃ ┃ ┃┃┃┃ ┃┃ ┃ ┃   ┃  ┃  ┃
+  ━━┛┛ ┛┛ ┛ ┛ ━━┛━━┛━━┛ ┛   ━━┛━━┛┛
+EOF
+  printf '%s\n' "$C_RESET"
+}
+
+banner
 
 # ---------------------------------------------------------------------------
 # Detect platform
@@ -33,11 +66,12 @@ case "$(uname -m)" in
   *) err "unsupported arch: $(uname -m)" ;;
 esac
 
+step "Detected ${os}/${arch}"
+
 # ---------------------------------------------------------------------------
 # Resolve version (latest by default)
 # ---------------------------------------------------------------------------
 if [ "$VERSION" = "latest" ]; then
-  log "resolving latest version"
   # Follow redirect on /releases/latest to capture the tag without auth.
   VERSION=$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
     "https://github.com/$REPO/releases/latest" 2>/dev/null \
@@ -50,6 +84,8 @@ case "$VERSION" in
 esac
 ver_clean="${VERSION#v}"
 
+step "Resolved version ${C_BOLD}${VERSION}${C_RESET}"
+
 # ---------------------------------------------------------------------------
 # Build URLs and download
 # ---------------------------------------------------------------------------
@@ -60,7 +96,7 @@ checksum_url="https://github.com/$REPO/releases/download/${VERSION}/checksums.tx
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-log "downloading ${asset_url}"
+step "Downloading ${asset}"
 if ! curl -fsSL "$asset_url" -o "$tmp/$asset"; then
   err "failed to download ${asset_url} (no release for ${os}/${arch}?)"
 fi
@@ -76,18 +112,18 @@ if curl -fsSL "$checksum_url" -o "$tmp/checksums.txt" 2>/dev/null; then
     elif command -v shasum >/dev/null 2>&1; then
       actual=$(shasum -a 256 "$tmp/$asset" | awk '{print $1}')
     else
-      log "warning: no sha256 tool found — skipping checksum verification"
+      warn "no sha256 tool found — skipping checksum verification"
       actual=""
     fi
     if [ -n "$actual" ] && [ "$expected" != "$actual" ]; then
       err "checksum mismatch (expected=${expected} got=${actual})"
     fi
-    [ -n "$actual" ] && log "checksum verified"
+    [ -n "$actual" ] && step "Verified checksum"
   else
-    log "warning: ${asset} not listed in checksums.txt — skipping verification"
+    warn "${asset} not listed in checksums.txt — skipping verification"
   fi
 else
-  log "warning: could not fetch checksums.txt — skipping verification"
+  warn "could not fetch checksums.txt — skipping verification"
 fi
 
 # ---------------------------------------------------------------------------
@@ -100,7 +136,7 @@ mkdir -p "$INSTALL_DIR"
 mv "$tmp/$BINARY" "$INSTALL_DIR/$BINARY"
 chmod +x "$INSTALL_DIR/$BINARY"
 
-log "installed $BINARY $VERSION to $INSTALL_DIR/$BINARY"
+ok "Installed ${C_BOLD}${BINARY} ${VERSION}${C_RESET} to ${INSTALL_DIR}/${BINARY}"
 
 # ---------------------------------------------------------------------------
 # PATH hint
@@ -108,14 +144,10 @@ log "installed $BINARY $VERSION to $INSTALL_DIR/$BINARY"
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
   *)
-    cat <<EOF
-
-note: $INSTALL_DIR is not on your PATH.
-  add this to your shell profile (~/.zshrc, ~/.bashrc, etc.):
-
-    export PATH="$INSTALL_DIR:\$PATH"
-
-EOF
+    printf '\n'
+    warn "${INSTALL_DIR} is not on your PATH"
+    printf '    add this to your shell profile (~/.zshrc, ~/.bashrc, etc.):\n\n'
+    printf '      %sexport PATH="%s:$PATH"%s\n\n' "$C_DIM" "$INSTALL_DIR" "$C_RESET"
     ;;
 esac
 
@@ -125,6 +157,12 @@ esac
 # Skip silently when not running on a real terminal (e.g. CI, Dockerfile).
 # stdout is checked because `curl ... | sh` keeps it as a TTY but rebinds stdin
 # to the curl pipe — we read input from /dev/tty instead.
+print_next_steps() {
+  printf '\n  %sNext steps%s\n' "$C_BOLD" "$C_RESET"
+  printf '    %schatwoot auth login%s        log in to your Chatwoot instance\n' "$C_CYAN" "$C_RESET"
+  printf '    %schatwoot --help%s            see all commands\n\n' "$C_CYAN" "$C_RESET"
+}
+
 if [ ! -t 1 ] || [ ! -r /dev/tty ]; then
   exit 0
 fi
@@ -134,18 +172,25 @@ case "${SHELL##*/}" in
   zsh)  shell_kind=zsh ;;
   fish) shell_kind=fish ;;
   *)
-    log "tab completion: run '$BINARY completion --help' to set up"
+    printf '\n'
+    step "Tab completion: run '${C_BOLD}${BINARY} completion --help${C_RESET}' to set up"
+    print_next_steps
     exit 0
     ;;
 esac
 
-printf 'install: set up tab completion for %s? [Y/n] ' "$shell_kind"
+printf '\n  %sSet up tab completion for %s?%s [Y/n] ' "$C_BOLD" "$shell_kind" "$C_RESET"
 if ! read response < /dev/tty; then
   echo
+  print_next_steps
   exit 0
 fi
 case "$response" in
-  n|N|no|NO|No) log "skipped completion setup"; exit 0 ;;
+  n|N|no|NO|No)
+    step "Skipped completion setup"
+    print_next_steps
+    exit 0
+    ;;
 esac
 
 case "$shell_kind" in
@@ -153,22 +198,24 @@ case "$shell_kind" in
     dir="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
     mkdir -p "$dir"
     "$INSTALL_DIR/$BINARY" completion bash -c > "$dir/$BINARY"
-    log "installed bash completion to $dir/$BINARY (restart your shell to enable)"
+    ok "Added bash completion to ${dir}/${BINARY} — restart your shell to enable"
     ;;
   fish)
     dir="${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions"
     mkdir -p "$dir"
     "$INSTALL_DIR/$BINARY" completion fish -c > "$dir/$BINARY.fish"
-    log "installed fish completion to $dir/$BINARY.fish"
+    ok "Added fish completion to ${dir}/${BINARY}.fish"
     ;;
   zsh)
     rc="${ZDOTDIR:-$HOME}/.zshrc"
     line="source <($BINARY completion zsh -c)"
     if [ -f "$rc" ] && grep -Fq "$line" "$rc"; then
-      log "zsh completion already in $rc"
+      step "zsh completion already present in ${rc}"
     else
       printf '\n# chatwoot CLI completion\n%s\n' "$line" >> "$rc"
-      log "added zsh completion source to $rc (restart shell or 'source $rc' to enable)"
+      ok "Added zsh completion to ${rc} — restart your shell to enable"
     fi
     ;;
 esac
+
+print_next_steps
