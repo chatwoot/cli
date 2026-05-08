@@ -11,6 +11,6 @@ func (c *VersionCmd) Run(app *App) error {
 	if v == "" {
 		v = "dev"
 	}
-	fmt.Fprintln(app.Printer.Writer, v)
-	return nil
+	_, err := fmt.Fprintln(app.Printer.Writer, v)
+	return err
 }

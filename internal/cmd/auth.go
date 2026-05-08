@@ -149,8 +149,8 @@ func runAuthStatus(app *App) error {
 	}
 
 	if cfg == nil || !cfg.IsValid() {
-		fmt.Fprintln(app.Printer.Writer, "Not logged in. Run 'chatwoot auth login' to authenticate.")
-		return nil
+		_, err := fmt.Fprintln(app.Printer.Writer, "Not logged in. Run 'chatwoot auth login' to authenticate.")
+		return err
 	}
 
 	apiKey, source, err := config.ResolveAPIKey(cfg)
