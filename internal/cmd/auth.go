@@ -149,7 +149,7 @@ func runAuthStatus(app *App) error {
 	}
 
 	if cfg == nil || !cfg.IsValid() {
-		fmt.Println("Not logged in. Run 'chatwoot auth login' to authenticate.")
+		fmt.Fprintln(app.Printer.Writer, "Not logged in. Run 'chatwoot auth login' to authenticate.")
 		return nil
 	}
 
