@@ -49,7 +49,7 @@ npx skills add chatwoot/cli              # current project
 npx skills add chatwoot/cli --global     # all projects
 ```
 
-Agents run non-interactively, so authenticate once with `chatwoot auth login` (or set `CHATWOOT_API_KEY` for sandboxed environments). See the [agent skill docs](https://www.chatwoot.com/docs/cli/agent-skill) for details.
+Agents run non-interactively, so authenticate once with `chatwoot auth login` (or set `CHATWOOT_API_KEY` for sandboxed environments). See the [agent skill docs](https://developers.chatwoot.com/cli/agent-skill) for details.
 
 ## Shell Completions
 
