@@ -43,7 +43,7 @@ fi
 # Build the binary fresh
 # ----------------------------------------------------------------------------
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 go build -o chatwoot ./cmd/chatwoot/
 BIN="$(pwd)/chatwoot"
 
