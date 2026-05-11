@@ -159,8 +159,12 @@ tar -xzf "$tmp/$asset" -C "$tmp"
 [ -f "$tmp/$BINARY" ] || err "archive did not contain a '$BINARY' binary"
 
 mkdir -p "$INSTALL_DIR"
-mv "$tmp/$BINARY" "$INSTALL_DIR/$BINARY"
-chmod +x "$INSTALL_DIR/$BINARY"
+if has install; then
+  install -m 0755 "$tmp/$BINARY" "$INSTALL_DIR/$BINARY"
+else
+  mv "$tmp/$BINARY" "$INSTALL_DIR/$BINARY"
+  chmod +x "$INSTALL_DIR/$BINARY"
+fi
 
 case "$install_mode" in
   reinstall) ok "Reinstalled ${C_BOLD}${BINARY} ${VERSION}${C_RESET} to ${INSTALL_DIR}/${BINARY}" ;;
