@@ -149,3 +149,57 @@ func TestConvContactErrorsWhenNoSender(t *testing.T) {
 		t.Fatalf("error %q should mention missing contact", err.Error())
 	}
 }
+
+type statusRunner func(app *App, id int) error
+
+func TestConvStatusVerbsCallToggleStatus(t *testing.T) {
+	cases := []struct {
+		name       string
+		wantStatus string
+		run        statusRunner
+	}{
+		{"resolve", "resolved", func(a *App, id int) error { return (&ConvResolveCmd{ID: id}).Run(a) }},
+		{"open", "open", func(a *App, id int) error { return (&ConvOpenCmd{ID: id}).Run(a) }},
+		{"pending", "pending", func(a *App, id int) error { return (&ConvPendingCmd{ID: id}).Run(a) }},
+		{"snooze-until-next-reply", "snoozed", func(a *App, id int) error { return (&ConvSnoozeCmd{ID: id}).Run(a) }},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setupTestEnv(t)
+
+			var got struct {
+				Status       string `json:"status"`
+				SnoozedUntil *int64 `json:"snoozed_until,omitempty"`
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/v1/accounts/1/conversations/55/toggle_status" {
+					http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
+					return
+				}
+				if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+					t.Errorf("decode body: %v", err)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"success":true,"current_status":"` + tc.wantStatus + `","conversation_id":55}`))
+			}))
+			defer server.Close()
+
+			if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
+				t.Fatalf("config.Save: %v", err)
+			}
+			app, err := NewApp(&CLI{Output: "text"}, false, "test")
+			if err != nil {
+				t.Fatalf("NewApp: %v", err)
+			}
+
+			if err := tc.run(app, 55); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if got.Status != tc.wantStatus {
+				t.Errorf("posted status = %q, want %q", got.Status, tc.wantStatus)
+			}
+		})
+	}
+}
+
