@@ -9,7 +9,7 @@ require (
 	github.com/getkin/kin-openapi v0.138.0
 	github.com/jotaen/kong-completion v0.0.14
 	github.com/zalando/go-keyring v0.2.8
-	golang.org/x/term v0.31.0
+	golang.org/x/term v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -31,6 +31,6 @@ require (
 	github.com/riywo/loginshell v0.0.0-20200815045211-7d26008be1ab // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )
