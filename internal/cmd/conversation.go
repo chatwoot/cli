@@ -84,6 +84,7 @@ type ConvCmd struct {
 	Unassign ConvUnassignCmd `cmd:"" help:"Remove the assignee."`
 	Label    ConvLabelCmd    `cmd:"" help:"Set labels on the conversation (replaces existing)."`
 	Priority ConvPriorityCmd `cmd:"" help:"Set or clear conversation priority."`
+	Contact  ConvContactCmd  `cmd:"" help:"View the contact (sender) for the conversation."`
 }
 
 // -- view ---------------------------------------------------------------------
@@ -402,6 +403,27 @@ func (c *ConvPriorityCmd) Run(app *App) error {
 	}
 	fmt.Printf("Conversation %d priority -> %s.\n", c.ID, c.Level)
 	return nil
+}
+
+// -- contact ------------------------------------------------------------------
+
+type ConvContactCmd struct {
+	ID int `arg:"" help:"Conversation ID."`
+}
+
+func (c *ConvContactCmd) Run(app *App) error {
+	conv, err := app.Client.Conversations().Get(c.ID)
+	if err != nil {
+		return err
+	}
+	if conv.Meta.Sender == nil {
+		return fmt.Errorf("conversation %d has no associated contact", c.ID)
+	}
+	contact, err := app.Client.Contacts().Get(conv.Meta.Sender.ID)
+	if err != nil {
+		return err
+	}
+	return renderContact(app, contact)
 }
 
 // -----------------------------------------------------------------------------

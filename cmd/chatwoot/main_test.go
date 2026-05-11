@@ -5,11 +5,104 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/chatwoot/cli/internal/config"
 	"github.com/zalando/go-keyring"
 )
+
+func TestRewriteIDFirstGrammar(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{
+			name: "conv id verb -> conv verb id",
+			in:   []string{"conv", "123", "reply", "hi"},
+			want: []string{"conv", "reply", "123", "hi"},
+		},
+		{
+			name: "contact verb on conv (the new branch verb)",
+			in:   []string{"conv", "456", "contact"},
+			want: []string{"conv", "contact", "456"},
+		},
+		{
+			name: "long noun form",
+			in:   []string{"conversation", "789", "resolve"},
+			want: []string{"conversation", "resolve", "789"},
+		},
+		{
+			// Boolean flags before the noun are skipped fine.
+			name: "boolean flag before noun",
+			in:   []string{"-q", "conv", "123", "open"},
+			want: []string{"-q", "conv", "open", "123"},
+		},
+		{
+			// Known limitation: a flag with a value (e.g. `-a 2`) breaks the
+			// rewrite because the loop only advances past tokens starting
+			// with '-'. Users typing id-first must put global flags after
+			// the noun, or use verb-first form.
+			name: "flag-with-value bails (known limitation)",
+			in:   []string{"-a", "2", "conv", "123", "open"},
+			want: []string{"-a", "2", "conv", "123", "open"},
+		},
+		{
+			name: "verb-first input passes through",
+			in:   []string{"conv", "reply", "123", "hi"},
+			want: []string{"conv", "reply", "123", "hi"},
+		},
+		{
+			name: "unknown noun passes through",
+			in:   []string{"label", "42", "delete"},
+			want: []string{"label", "42", "delete"},
+		},
+		{
+			name: "unknown verb passes through (not a known conv verb)",
+			in:   []string{"conv", "123", "explode"},
+			want: []string{"conv", "123", "explode"},
+		},
+		{
+			name: "non-numeric second arg passes through",
+			in:   []string{"conv", "abc", "reply"},
+			want: []string{"conv", "abc", "reply"},
+		},
+		{
+			name: "too few args passes through",
+			in:   []string{"conv", "123"},
+			want: []string{"conv", "123"},
+		},
+		{
+			name: "empty args passes through",
+			in:   []string{},
+			want: []string{},
+		},
+		{
+			name: "only flags passes through",
+			in:   []string{"-h"},
+			want: []string{"-h"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := rewriteIDFirstGrammar(tc.in)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("rewriteIDFirstGrammar(%v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRewriteIDFirstGrammarDoesNotMutateInput(t *testing.T) {
+	in := []string{"conv", "123", "reply", "hi"}
+	original := append([]string{}, in...)
+	_ = rewriteIDFirstGrammar(in)
+	if !reflect.DeepEqual(in, original) {
+		t.Errorf("input mutated: got %v, want %v", in, original)
+	}
+}
 
 func TestAssignMeAccountOverrideSmoke(t *testing.T) {
 	keyring.MockInit()
