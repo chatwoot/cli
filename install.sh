@@ -209,7 +209,7 @@ case "$shell_kind" in
     ;;
   zsh)
     rc="${ZDOTDIR:-$HOME}/.zshrc"
-    line="source <($BINARY completion zsh -c)"
+    line="source <(\"$INSTALL_DIR/$BINARY\" completion zsh -c)"
     if [ -f "$rc" ] && grep -Fq "$line" "$rc"; then
       step "zsh completion already present in ${rc}"
     else

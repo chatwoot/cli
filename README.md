@@ -62,8 +62,9 @@ chatwoot completion bash -c > ~/.local/share/bash-completion/completions/chatwoo
 # fish
 chatwoot completion fish -c > ~/.config/fish/completions/chatwoot.fish
 
-# zsh — append a source line to your .zshrc
-echo 'source <(chatwoot completion zsh -c)' >> ~/.zshrc
+# zsh — resolve the install path once so future PATH changes can't hijack the source line
+chatwoot_bin="$(command -v chatwoot)"
+echo "source <(\"$chatwoot_bin\" completion zsh -c)" >> ~/.zshrc
 ```
 
 Restart your shell (or `source` the rc file) and tab-completion will work for commands, subcommands, and flags. Run `chatwoot completion --help` for details.
