@@ -189,6 +189,7 @@ func (s *ConversationsService) Assign(id int, assigneeID *int, teamID int) (*Use
 }
 
 func (s *ConversationsService) Unassign(id int) error {
+	// Chatwoot treats assignee_id: 0 (not null) as the unassign signal.
 	zero := 0
 	body := AssignRequest{AssigneeID: &zero}
 	jsonBody, err := json.Marshal(body)

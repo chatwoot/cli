@@ -203,3 +203,37 @@ func TestConvStatusVerbsCallToggleStatus(t *testing.T) {
 	}
 }
 
+func TestConvUnassignPostsZeroAssignee(t *testing.T) {
+	setupTestEnv(t)
+
+	var got struct {
+		AssigneeID *int `json:"assignee_id"`
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/accounts/1/conversations/42/assignments" {
+			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+	app, err := NewApp(&CLI{Output: "text"}, false, "test")
+	if err != nil {
+		t.Fatalf("NewApp: %v", err)
+	}
+
+	if err := (&ConvUnassignCmd{ID: 42}).Run(app); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got.AssigneeID == nil || *got.AssigneeID != 0 {
+		t.Errorf("posted assignee_id = %v, want 0 (Chatwoot's unassign sentinel)", got.AssigneeID)
+	}
+}
+
