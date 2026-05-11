@@ -15,6 +15,15 @@ run = "mkdir -p ./bin && watchexec -e go --restart --debounce 300 -- go build -o
 description = "Run golangci-lint across the module"
 run = "golangci-lint run ./..."
 
+[tasks.cover]
+description = "Run tests with coverage report"
+run = "go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out"
+
+[tasks."cover:html"]
+description = "Open coverage report in browser"
+depends = ["cover"]
+run = "go tool cover -html=coverage.out"
+
 [tasks."sdk:update-swagger"]
 description = "Update the pinned Chatwoot application Swagger snapshot"
 run = "curl -fL https://raw.githubusercontent.com/chatwoot/chatwoot/develop/swagger/tag_groups/application_swagger.json -o internal/sdk/testdata/application_swagger.json"
