@@ -35,7 +35,53 @@ jobs:
         run: go build ./...
 
       - name: go test
-        run: go test -race -count=1 ./...
+        run: go test -race -count=1 -covermode=atomic -coverprofile=cover.out ./...
+
+      - name: Upload coverage profile
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-profile
+          path: cover.out
+          retention-days: 7
+
+  coverage-comment:
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download coverage profile
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-profile
+
+      - name: Build coverage summary
+        run: |
+          {
+            echo "## Test coverage"
+            echo ""
+            echo '```'
+            go tool cover -func=cover.out | tail -n 40
+            echo '```'
+          } > coverage.md
+
+      - name: Post coverage comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage
+          path: coverage.md
 
   govulncheck:
     runs-on: ubuntu-latest
