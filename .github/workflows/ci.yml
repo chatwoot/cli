@@ -46,7 +46,13 @@ jobs:
           retention-days: 7
 
   coverage-comment:
-    if: github.event_name == 'pull_request'
+    # Skip fork PRs and Dependabot: GITHUB_TOKEN is read-only there, so
+    # `pull-requests: write` is ignored and the sticky-comment step would fail.
+    # Same-repo PRs get the comment; fork/dependabot PRs simply skip this job.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
     needs: test
     runs-on: ubuntu-latest
     permissions:
