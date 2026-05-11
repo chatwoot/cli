@@ -15,6 +15,15 @@ import (
 	"github.com/chatwoot/cli/internal/config"
 )
 
+// ANSI escape sequences used to render the outdated-version notice as
+// muted (dim) text. The reset is applied at the end of every line so a
+// truncated print (e.g. broken pipe) can't leak dim styling into the
+// user's prompt.
+const (
+	ansiDim   = "\x1b[2m"
+	ansiReset = "\x1b[0m"
+)
+
 // LatestReleaseURL is the GitHub API endpoint for the most recent release.
 const LatestReleaseURL = "https://api.github.com/repos/chatwoot/cli/releases/latest"
 
@@ -177,4 +186,28 @@ func DisplayVersion(v string) string {
 		return v
 	}
 	return "v" + v
+}
+
+// FormatNotice builds the two-line outdated-version banner. When color is
+// true each line is wrapped in ANSI dim + reset so the notice reads as
+// secondary, non-urgent information.
+func FormatNotice(current, latest string, color bool) string {
+	lines := []string{
+		fmt.Sprintf("A new version of chatwoot is available: %s → %s",
+			DisplayVersion(current), DisplayVersion(latest)),
+		"  curl -fsSL https://chwt.app/install-cli | sh",
+	}
+	var b strings.Builder
+	b.WriteByte('\n')
+	for _, line := range lines {
+		if color {
+			b.WriteString(ansiDim)
+			b.WriteString(line)
+			b.WriteString(ansiReset)
+		} else {
+			b.WriteString(line)
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
 }

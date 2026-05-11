@@ -14,6 +14,7 @@ import (
 	"github.com/chatwoot/cli/internal/cmd"
 	"github.com/chatwoot/cli/internal/update"
 	kongcompletion "github.com/jotaen/kong-completion"
+	"golang.org/x/term"
 )
 
 // updateWait caps how long main blocks at exit waiting for the background
@@ -94,7 +95,7 @@ func main() {
 
 	if notice {
 		waitRefresh()
-		printOutdatedNotice(version)
+		printOutdatedNotice(version, !cli.NoColor && term.IsTerminal(int(os.Stderr.Fd())))
 	}
 
 	if runErr != nil {
@@ -123,8 +124,10 @@ func shouldShowNotice(cli *cmd.CLI, cmdStr, version string) bool {
 // printOutdatedNotice writes a short upgrade hint to stderr when the
 // cached latest tag is newer than the running version. Failures (missing
 // cache, fetch never completed, parse error) silently skip the notice —
-// this is a nice-to-have, not a correctness path.
-func printOutdatedNotice(current string) {
+// this is a nice-to-have, not a correctness path. color asks for ANSI
+// dim styling and should only be true when stderr is an interactive
+// terminal that hasn't opted out via --no-color.
+func printOutdatedNotice(current string, color bool) {
 	cache, err := update.LoadCache()
 	if err != nil || cache == nil {
 		return
@@ -132,9 +135,7 @@ func printOutdatedNotice(current string) {
 	if !update.IsOutdated(current, cache.LatestVersion) {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "\nA new version of chatwoot is available: %s → %s\n",
-		update.DisplayVersion(current), update.DisplayVersion(cache.LatestVersion))
-	fmt.Fprintln(os.Stderr, "  curl -fsSL https://chwt.app/install-cli | sh")
+	fmt.Fprint(os.Stderr, update.FormatNotice(current, cache.LatestVersion, color))
 }
 
 // rewriteIDFirstGrammar swaps `<noun> <id> <verb>` to `<noun> <verb> <id>`

@@ -1,6 +1,7 @@
 package update
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -70,6 +71,24 @@ func TestCacheRoundTrip(t *testing.T) {
 	}
 	if !got.CheckedAt.Equal(want.CheckedAt) {
 		t.Fatalf("CheckedAt = %v, want %v", got.CheckedAt, want.CheckedAt)
+	}
+}
+
+func TestFormatNotice(t *testing.T) {
+	plain := FormatNotice("v1.0.0", "v1.1.0", false)
+	if !strings.Contains(plain, "v1.0.0 → v1.1.0") {
+		t.Fatalf("plain notice missing version pair: %q", plain)
+	}
+	if strings.Contains(plain, "\x1b[") {
+		t.Fatalf("plain notice should not contain ANSI escapes: %q", plain)
+	}
+
+	dim := FormatNotice("v1.0.0", "v1.1.0", true)
+	if !strings.Contains(dim, "\x1b[2m") || !strings.Contains(dim, "\x1b[0m") {
+		t.Fatalf("dim notice missing ANSI dim/reset escapes: %q", dim)
+	}
+	if !strings.HasSuffix(dim, "\x1b[0m\n") {
+		t.Fatalf("dim notice should end with reset before final newline: %q", dim)
 	}
 }
 
