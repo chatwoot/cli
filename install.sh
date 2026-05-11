@@ -36,6 +36,7 @@ step() { printf '  %s→%s %s\n' "$C_CYAN" "$C_RESET" "$*"; }
 ok()   { printf '  %s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
 warn() { printf '  %s!%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
 err()  { printf '  %s✗%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; exit 1; }
+has()  { command -v "$1" >/dev/null 2>&1; }
 
 banner() {
   [ -t 1 ] || return 0
@@ -132,9 +133,9 @@ fi
 if curl -fsSL "$checksum_url" -o "$tmp/checksums.txt" 2>/dev/null; then
   expected=$(grep " ${asset}\$" "$tmp/checksums.txt" | awk '{print $1}')
   if [ -n "$expected" ]; then
-    if command -v sha256sum >/dev/null 2>&1; then
+    if has sha256sum; then
       actual=$(sha256sum "$tmp/$asset" | awk '{print $1}')
-    elif command -v shasum >/dev/null 2>&1; then
+    elif has shasum; then
       actual=$(shasum -a 256 "$tmp/$asset" | awk '{print $1}')
     else
       warn "no sha256 tool found — skipping checksum verification"
@@ -237,39 +238,76 @@ esac
 if [ "$completion_configured" = true ]; then
   printf '\n'
   step "${shell_kind} completion already configured in ${completion_path} — skipping"
-  print_next_steps
-  exit 0
+else
+  printf '\n  %sSet up tab completion for %s?%s [Y/n] ' "$C_BOLD" "$shell_kind" "$C_RESET"
+  if ! read -r response < /dev/tty; then
+    echo
+    response=n
+  fi
+  case "$response" in
+    n|N|no|NO|No)
+      step "Skipped completion setup"
+      ;;
+    *)
+      case "$shell_kind" in
+        bash)
+          mkdir -p "$completion_dir"
+          "$INSTALL_DIR/$BINARY" completion bash -c > "$completion_path"
+          ok "Added bash completion to ${completion_path} — restart your shell to enable"
+          ;;
+        fish)
+          mkdir -p "$completion_dir"
+          "$INSTALL_DIR/$BINARY" completion fish -c > "$completion_path"
+          ok "Added fish completion to ${completion_path}"
+          ;;
+        zsh)
+          printf '\n# chatwoot CLI completion\n%s\n' "$zsh_line" >> "$rc"
+          ok "Added zsh completion to ${rc} — restart your shell to enable"
+          ;;
+      esac
+      ;;
+  esac
 fi
 
-printf '\n  %sSet up tab completion for %s?%s [Y/n] ' "$C_BOLD" "$shell_kind" "$C_RESET"
-if ! read -r response < /dev/tty; then
-  echo
-  print_next_steps
-  exit 0
-fi
-case "$response" in
-  n|N|no|NO|No)
-    step "Skipped completion setup"
-    print_next_steps
-    exit 0
-    ;;
-esac
-
+# ---------------------------------------------------------------------------
+# Optional: 'cw' alias
+# ---------------------------------------------------------------------------
 case "$shell_kind" in
   bash)
-    mkdir -p "$completion_dir"
-    "$INSTALL_DIR/$BINARY" completion bash -c > "$completion_path"
-    ok "Added bash completion to ${completion_path} — restart your shell to enable"
-    ;;
-  fish)
-    mkdir -p "$completion_dir"
-    "$INSTALL_DIR/$BINARY" completion fish -c > "$completion_path"
-    ok "Added fish completion to ${completion_path}"
+    alias_rc="$HOME/.bashrc"
+    alias_line="alias cw='$BINARY'"
     ;;
   zsh)
-    printf '\n# chatwoot CLI completion\n%s\n' "$zsh_line" >> "$rc"
-    ok "Added zsh completion to ${rc} — restart your shell to enable"
+    alias_rc="${ZDOTDIR:-$HOME}/.zshrc"
+    alias_line="alias cw='$BINARY'"
+    ;;
+  fish)
+    alias_rc="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish"
+    alias_line="alias cw '$BINARY'"
     ;;
 esac
+
+alias_configured=false
+[ -f "$alias_rc" ] && grep -Fq "$alias_line" "$alias_rc" && alias_configured=true
+
+if [ "$alias_configured" = true ]; then
+  step "'cw' alias already configured in ${alias_rc} — skipping"
+else
+  printf "\n  %sCreate 'cw' alias for %s?%s [Y/n] " "$C_BOLD" "$BINARY" "$C_RESET"
+  if ! read -r response < /dev/tty; then
+    echo
+    response=n
+  fi
+  case "$response" in
+    n|N|no|NO|No)
+      step "Skipped 'cw' alias setup"
+      ;;
+    *)
+      mkdir -p "$(dirname "$alias_rc")"
+      printf '\n# chatwoot CLI alias\n%s\n' "$alias_line" >> "$alias_rc"
+      ok "Added 'cw' alias to ${alias_rc} — restart your shell to enable"
+      ;;
+  esac
+fi
 
 print_next_steps
