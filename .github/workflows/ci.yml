@@ -48,7 +48,7 @@ jobs:
 
       - name: golangci-lint
         # v8 defaults to golangci-lint v2.x, which supports recent Go (1.25+).
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           args: --timeout=5m
