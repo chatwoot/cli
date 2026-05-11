@@ -3,9 +3,6 @@ go = "latest"
 watchexec = "latest"
 "aqua:golangci/golangci-lint" = "latest"
 
-[env]
-_.path = ["{{config_root}}/bin"]
-
 [tasks.build]
 description = "Build the CLI"
 run = "mkdir -p ./bin && go build -o ./bin/chatwoot ./cmd/chatwoot/"
