@@ -81,7 +81,10 @@ func (c *ContactViewCmd) Run(app *App) error {
 	if err != nil {
 		return err
 	}
+	return renderContact(app, contact)
+}
 
+func renderContact(app *App, contact *sdk.ContactFull) error {
 	if app.Printer.Format == "json" && !app.Printer.Quiet {
 		app.Printer.PrintJSON(contact)
 		return nil

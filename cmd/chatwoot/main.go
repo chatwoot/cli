@@ -20,7 +20,7 @@ var version = "dev"
 // can't have arg:"" siblings to cmd:"". rewriteIDFirstGrammar swaps the id
 // and verb tokens so Kong sees its preferred verb-first form.
 var (
-	convVerbs    = []string{"view", "messages", "reply", "resolve", "open", "pending", "snooze", "assign", "unassign", "label", "priority"}
+	convVerbs    = []string{"view", "messages", "reply", "resolve", "open", "pending", "snooze", "assign", "unassign", "label", "priority", "contact"}
 	contactVerbs = []string{"view", "conversations"}
 	inboxVerbs   = []string{"view"}
 
@@ -31,7 +31,7 @@ var (
 		"inbox":        inboxVerbs,
 	}
 
-	helpVerbSwap = regexp.MustCompile(`\b(view|messages|reply|resolve|open|pending|snooze|assign|unassign|label|priority|conversations)\s+<id>`)
+	helpVerbSwap = regexp.MustCompile(`\b(view|messages|reply|resolve|open|pending|snooze|assign|unassign|label|priority|contact|conversations)\s+<id>`)
 )
 
 func main() {
