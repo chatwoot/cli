@@ -2,6 +2,8 @@ module github.com/chatwoot/cli
 
 go 1.25.5
 
+toolchain go1.25.10
+
 require (
 	github.com/alecthomas/kong v1.14.0
 	github.com/getkin/kin-openapi v0.133.0
