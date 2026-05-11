@@ -89,6 +89,7 @@ chatwoot convs --help         # filters for the list command
 | `conv <id> unassign`             | Remove the assignee                               |
 | `conv <id> label <a,b,c>`        | **Replace** labels with this set                  |
 | `conv <id> priority <level>`     | `urgent`, `high`, `medium`, `low`, `none`         |
+| `conv <id> contact`              | View the contact (sender) for the conversation    |
 | `contacts`                       | List/search contacts                              |
 | `contact <id>` / `<id> conversations` | View a contact / list their conversations    |
 | `inboxes` / `inbox <id>`         | List inboxes / view one                           |
@@ -131,7 +132,7 @@ Customer- or team-visible (effectively irreversible):
   affected, then confirm.
 
 Read-only and safe to run freely:
-`convs`, `conv <id>` (view), `conv <id> messages`, `contacts`, `contact <id>`,
+`convs`, `conv <id>` (view), `conv <id> messages`, `conv <id> contact`, `contacts`, `contact <id>`,
 `inboxes`, `inbox <id>`, `agents`, `labels`, `teams`, `me`, `whoami`,
 `auth status`, `config path`, `config view`.
 
