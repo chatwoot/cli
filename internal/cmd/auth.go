@@ -164,8 +164,9 @@ func runAuthStatus(app *App) error {
 		return fmt.Errorf("failed to fetch profile: %w", err)
 	}
 
-	// Self-heal the cached UserID for older configs that predate the cache.
-	if cfg.UserID != profile.ID {
+	// Self-heal the cached UserID for older saved logins. Environment tokens are
+	// temporary overrides and must not rewrite the persisted login identity.
+	if source == config.CredentialSourceKeyring && cfg.UserID != profile.ID {
 		cfg.UserID = profile.ID
 		_ = config.Save(cfg)
 	}

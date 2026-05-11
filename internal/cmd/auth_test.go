@@ -43,6 +43,35 @@ func setupAuthStatusEnv(t *testing.T, profileBody string) func() {
 	return server.Close
 }
 
+func setupAuthStatusKeyring(t *testing.T, profileBody string) func() {
+	t.Helper()
+	keyring.MockInit()
+	if err := keyring.DeleteAll("chatwoot-cli"); err != nil {
+		t.Fatalf("keyring.DeleteAll: %v", err)
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(config.APIKeyEnv, "")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/profile" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(profileBody))
+	}))
+
+	cfg := &config.Config{BaseURL: server.URL, AccountID: 1}
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+	if err := config.SaveAPIKey(cfg, "test-token"); err != nil {
+		t.Fatalf("config.SaveAPIKey: %v", err)
+	}
+
+	return server.Close
+}
+
 // runAndCapture runs a Cmd's Run with a buffered Printer and returns stdout.
 func runAndCapture(t *testing.T, run func(*App) error) string {
 	t.Helper()
@@ -131,7 +160,7 @@ func TestAuthStatusSelfHealsCachedUserID(t *testing.T) {
 		"role": "agent",
 		"availability_status": "online"
 	}`
-	defer setupAuthStatusEnv(t, profile)()
+	defer setupAuthStatusKeyring(t, profile)()
 
 	pre, err := config.Load()
 	if err != nil {
@@ -149,5 +178,35 @@ func TestAuthStatusSelfHealsCachedUserID(t *testing.T) {
 	}
 	if post.UserID != 99 {
 		t.Fatalf("expected UserID=99 cached after auth status, got %d", post.UserID)
+	}
+}
+
+func TestAuthStatusDoesNotCacheUserIDFromEnvironmentToken(t *testing.T) {
+	profile := `{
+		"id": 99,
+		"name": "Alan Turing",
+		"email": "alan@example.com",
+		"role": "agent",
+		"availability_status": "online"
+	}`
+	defer setupAuthStatusEnv(t, profile)()
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load (pre): %v", err)
+	}
+	cfg.UserID = 42
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+
+	_ = runAndCapture(t, (&AuthStatusCmd{}).Run)
+
+	post, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load (post): %v", err)
+	}
+	if post.UserID != 42 {
+		t.Fatalf("expected env-token auth status to preserve cached UserID=42, got %d", post.UserID)
 	}
 }
