@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"slices"
@@ -95,7 +96,7 @@ func main() {
 
 	if notice {
 		waitRefresh()
-		printOutdatedNotice(version, !cli.NoColor && term.IsTerminal(int(os.Stderr.Fd())))
+		printOutdatedNotice(os.Stderr, version, !cli.NoColor && term.IsTerminal(int(os.Stderr.Fd())))
 	}
 
 	if runErr != nil {
@@ -121,13 +122,13 @@ func shouldShowNotice(cli *cmd.CLI, cmdStr, version string) bool {
 	return true
 }
 
-// printOutdatedNotice writes a short upgrade hint to stderr when the
-// cached latest tag is newer than the running version. Failures (missing
-// cache, fetch never completed, parse error) silently skip the notice —
-// this is a nice-to-have, not a correctness path. color asks for ANSI
-// dim styling and should only be true when stderr is an interactive
-// terminal that hasn't opted out via --no-color.
-func printOutdatedNotice(current string, color bool) {
+// printOutdatedNotice writes a short upgrade hint when the cached latest
+// tag is newer than the running version. Failures (missing cache, fetch
+// never completed, parse error) silently skip the notice — this is a
+// nice-to-have, not a correctness path. color asks for ANSI dim styling
+// and should only be true when w is an interactive terminal that hasn't
+// opted out via --no-color.
+func printOutdatedNotice(w io.Writer, current string, color bool) {
 	cache, err := update.LoadCache()
 	if err != nil || cache == nil {
 		return
@@ -135,7 +136,7 @@ func printOutdatedNotice(current string, color bool) {
 	if !update.IsOutdated(current, cache.LatestVersion) {
 		return
 	}
-	fmt.Fprint(os.Stderr, update.FormatNotice(current, cache.LatestVersion, color))
+	fmt.Fprint(w, update.FormatNotice(current, cache.LatestVersion, color))
 }
 
 // rewriteIDFirstGrammar swaps `<noun> <id> <verb>` to `<noun> <verb> <id>`

@@ -1,14 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/chatwoot/cli/internal/cmd"
 	"github.com/chatwoot/cli/internal/config"
+	"github.com/chatwoot/cli/internal/update"
 	"github.com/zalando/go-keyring"
 )
 
@@ -102,6 +107,112 @@ func TestRewriteIDFirstGrammarDoesNotMutateInput(t *testing.T) {
 	if !reflect.DeepEqual(in, original) {
 		t.Errorf("input mutated: got %v, want %v", in, original)
 	}
+}
+
+func TestShouldShowNotice(t *testing.T) {
+	cases := []struct {
+		name    string
+		cli     cmd.CLI
+		cmdStr  string
+		version string
+		want    bool
+	}{
+		{"happy path, tagged build, text output", cmd.CLI{Output: "text"}, "convs", "v1.0.0", true},
+		{"quiet mode suppresses", cmd.CLI{Output: "text", Quiet: true}, "convs", "v1.0.0", false},
+		{"json output suppresses", cmd.CLI{Output: "json"}, "convs", "v1.0.0", false},
+		{"csv output suppresses", cmd.CLI{Output: "csv"}, "convs", "v1.0.0", false},
+		{"dev build suppresses", cmd.CLI{Output: "text"}, "convs", "dev", false},
+		{"empty version suppresses", cmd.CLI{Output: "text"}, "convs", "", false},
+		{"version command suppresses", cmd.CLI{Output: "text"}, "version", "v1.0.0", false},
+		{"version --check suppresses (prefix match)", cmd.CLI{Output: "text"}, "version", "v1.0.0", false},
+		{"completion command suppresses", cmd.CLI{Output: "text"}, "completion bash", "v1.0.0", false},
+		{"nested command still shows", cmd.CLI{Output: "text"}, "conv reply", "v1.0.0", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shouldShowNotice(&tc.cli, tc.cmdStr, tc.version); got != tc.want {
+				t.Fatalf("shouldShowNotice(%+v, %q, %q) = %v, want %v",
+					tc.cli, tc.cmdStr, tc.version, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPrintOutdatedNotice(t *testing.T) {
+	t.Run("outdated prints banner", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		if err := update.SaveCache(&update.Cache{LatestVersion: "v2.0.0", CheckedAt: time.Now()}); err != nil {
+			t.Fatalf("SaveCache: %v", err)
+		}
+
+		var buf bytes.Buffer
+		printOutdatedNotice(&buf, "v1.0.0", false)
+
+		out := buf.String()
+		if !strings.Contains(out, "v1.0.0 → v2.0.0") {
+			t.Fatalf("missing version pair: %q", out)
+		}
+		if !strings.Contains(out, "curl -fsSL https://chwt.app/install-cli") {
+			t.Fatalf("missing install hint: %q", out)
+		}
+		if strings.Contains(out, "\x1b[") {
+			t.Fatalf("color=false leaked ANSI escapes: %q", out)
+		}
+	})
+
+	t.Run("up to date prints nothing", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		if err := update.SaveCache(&update.Cache{LatestVersion: "v1.0.0", CheckedAt: time.Now()}); err != nil {
+			t.Fatalf("SaveCache: %v", err)
+		}
+
+		var buf bytes.Buffer
+		printOutdatedNotice(&buf, "v1.0.0", false)
+
+		if buf.Len() != 0 {
+			t.Fatalf("expected silence, got %q", buf.String())
+		}
+	})
+
+	t.Run("missing cache prints nothing", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+
+		var buf bytes.Buffer
+		printOutdatedNotice(&buf, "v1.0.0", false)
+
+		if buf.Len() != 0 {
+			t.Fatalf("expected silence, got %q", buf.String())
+		}
+	})
+
+	t.Run("dev build prints nothing even when cache says outdated", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		if err := update.SaveCache(&update.Cache{LatestVersion: "v9.0.0", CheckedAt: time.Now()}); err != nil {
+			t.Fatalf("SaveCache: %v", err)
+		}
+
+		var buf bytes.Buffer
+		printOutdatedNotice(&buf, "dev", false)
+
+		if buf.Len() != 0 {
+			t.Fatalf("expected silence for dev build, got %q", buf.String())
+		}
+	})
+
+	t.Run("color=true emits ANSI dim", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		if err := update.SaveCache(&update.Cache{LatestVersion: "v2.0.0", CheckedAt: time.Now()}); err != nil {
+			t.Fatalf("SaveCache: %v", err)
+		}
+
+		var buf bytes.Buffer
+		printOutdatedNotice(&buf, "v1.0.0", true)
+
+		out := buf.String()
+		if !strings.Contains(out, "\x1b[2m") || !strings.Contains(out, "\x1b[0m") {
+			t.Fatalf("color=true missing ANSI dim/reset: %q", out)
+		}
+	})
 }
 
 func TestAssignMeAccountOverrideSmoke(t *testing.T) {
