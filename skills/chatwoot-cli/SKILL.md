@@ -104,7 +104,7 @@ chatwoot convs --help         # filters for the list command
 |---|---------|-----|
 | 1 | **Parsing default text output** | Text format is for humans and can change. Always pass `-o json` (or `-q` for IDs only) when an agent will consume the output. |
 | 2 | **Forgetting `convs` defaults to your open queue** | `chatwoot convs` is implicitly `--assignee me -s open`. Pass `--assignee all` and the relevant `-s` (one of `open`, `pending`, `resolved`, `snoozed`) when you mean "everything". |
-| 3 | **`label` is replace, not append** | `chatwoot conv 123 label foo` removes any existing labels other than `foo`. To add one label, fetch existing first: `chatwoot conv 123 -o json \| jq -r '.payload.labels \| join(",")'`, then pass the full set. |
+| 3 | **`label` is replace, not append** | `chatwoot conv 123 label foo` removes any existing labels other than `foo`. To add one label, fetch existing first: `chatwoot conv 123 -o json \| jq -r '.labels // [] \| join(",")'`, then pass the full set. See "Append a label" below — running the `label` command with an empty `$existing` (e.g. on fetch failure) silently strips every label, so use `set -o pipefail` and verify before re-setting. |
 | 4 | **Confusing `--query` with contact search** | `convs --query` searches **message content**. To find a contact by name/email/phone, use `contacts --search`. |
 | 5 | **Ambiguous `--agent <name>`** | `assign --agent <name>` matches a case-insensitive **substring** — risky when names overlap. Prefer agent IDs in scripts; run `chatwoot agents -o json` first to resolve. |
 | 6 | **`-l a -l b` as repeated flags** | Labels are comma-separated on a single flag: `-l a,b`. Repeating the flag won't merge them. |
@@ -154,9 +154,10 @@ chatwoot conv 123 messages -o json \
   | jq '.payload[-5:][] | {dir: (if .message_type==0 then "in" else "out" end), private, content}'
 ```
 
-**Append a label** (`label` replaces — fetch first, then merge):
+**Append a label** (`label` replaces — fetch first, then merge). `set -o pipefail` is required so a failed fetch surfaces instead of silently producing an empty `$existing`, which would clear every label on the next line:
 ```bash
-existing=$(chatwoot conv 123 -o json | jq -r '.payload.labels | join(",")')
+set -o pipefail
+existing=$(chatwoot conv 123 -o json | jq -r '.labels // [] | join(",")')
 chatwoot conv 123 label "${existing:+$existing,}billing"
 ```
 
