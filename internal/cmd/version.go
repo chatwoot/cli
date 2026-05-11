@@ -31,18 +31,20 @@ func (c *VersionCmd) Run(app *App) error {
 		return fmt.Errorf("check failed: %w", err)
 	}
 
-	fmt.Fprintf(app.Printer.Writer, "chatwoot %s\n", displayVersion(v))
-	fmt.Fprintf(app.Printer.Writer, "Latest: %s\n\n", displayVersion(latest))
+	var b strings.Builder
+	fmt.Fprintf(&b, "chatwoot %s\n", displayVersion(v))
+	fmt.Fprintf(&b, "Latest: %s\n\n", displayVersion(latest))
 	switch {
 	case v == "dev":
-		fmt.Fprintln(app.Printer.Writer, "Running a dev build.")
+		b.WriteString("Running a dev build.\n")
 	case normalizeVersion(v) == normalizeVersion(latest):
-		fmt.Fprintln(app.Printer.Writer, "Up to date.")
+		b.WriteString("Up to date.\n")
 	default:
-		fmt.Fprintln(app.Printer.Writer, "Update available.")
-		fmt.Fprintln(app.Printer.Writer, "  curl -fsSL https://chwt.app/install-cli | sh")
+		b.WriteString("Update available.\n")
+		b.WriteString("  curl -fsSL https://chwt.app/install-cli | sh\n")
 	}
-	return nil
+	_, err = fmt.Fprint(app.Printer.Writer, b.String())
+	return err
 }
 
 func displayVersion(v string) string {
@@ -67,7 +69,7 @@ func fetchLatestRelease(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GitHub API returned %s", resp.Status)
