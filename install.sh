@@ -69,6 +69,22 @@ esac
 step "Detected ${os}/${arch}"
 
 # ---------------------------------------------------------------------------
+# Detect existing install
+# ---------------------------------------------------------------------------
+existing_path="$INSTALL_DIR/$BINARY"
+existing_version=""
+if [ -x "$existing_path" ]; then
+  existing_version=$("$existing_path" --version 2>/dev/null | head -n1 | tr -d '[:space:]' || true)
+  case "$existing_version" in
+    v*|dev|"") ;;
+    *) existing_version="v$existing_version" ;;
+  esac
+  if [ -n "$existing_version" ]; then
+    step "Found existing ${BINARY} ${C_BOLD}${existing_version}${C_RESET}"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Resolve version (latest by default)
 # ---------------------------------------------------------------------------
 if [ "$VERSION" = "latest" ]; then
@@ -84,7 +100,16 @@ case "$VERSION" in
 esac
 ver_clean="${VERSION#v}"
 
-step "Resolved version ${C_BOLD}${VERSION}${C_RESET}"
+if [ -z "$existing_version" ]; then
+  install_mode=install
+  step "Resolved version ${C_BOLD}${VERSION}${C_RESET}"
+elif [ "$existing_version" = "$VERSION" ]; then
+  install_mode=reinstall
+  step "Resolved version ${C_BOLD}${VERSION}${C_RESET} (already up to date — reinstalling)"
+else
+  install_mode=update
+  step "Updating ${C_BOLD}${existing_version}${C_RESET} → ${C_BOLD}${VERSION}${C_RESET}"
+fi
 
 # ---------------------------------------------------------------------------
 # Build URLs and download
@@ -136,7 +161,11 @@ mkdir -p "$INSTALL_DIR"
 mv "$tmp/$BINARY" "$INSTALL_DIR/$BINARY"
 chmod +x "$INSTALL_DIR/$BINARY"
 
-ok "Installed ${C_BOLD}${BINARY} ${VERSION}${C_RESET} to ${INSTALL_DIR}/${BINARY}"
+case "$install_mode" in
+  reinstall) ok "Reinstalled ${C_BOLD}${BINARY} ${VERSION}${C_RESET} to ${INSTALL_DIR}/${BINARY}" ;;
+  update)    ok "Updated ${C_BOLD}${BINARY}${C_RESET} ${existing_version} → ${C_BOLD}${VERSION}${C_RESET} at ${INSTALL_DIR}/${BINARY}" ;;
+  *)         ok "Installed ${C_BOLD}${BINARY} ${VERSION}${C_RESET} to ${INSTALL_DIR}/${BINARY}" ;;
+esac
 
 # ---------------------------------------------------------------------------
 # PATH hint
@@ -160,7 +189,9 @@ esac
 # to the curl pipe — we read input from /dev/tty instead.
 print_next_steps() {
   printf '\n  %sNext steps%s\n' "$C_BOLD" "$C_RESET"
-  printf '    %schatwoot auth login%s        log in to your Chatwoot instance\n' "$C_CYAN" "$C_RESET"
+  if [ ! -f "$HOME/.chatwoot/config.yaml" ]; then
+    printf '    %schatwoot auth login%s        log in to your Chatwoot instance\n' "$C_CYAN" "$C_RESET"
+  fi
   printf '    %schatwoot --help%s            see all commands\n\n' "$C_CYAN" "$C_RESET"
 }
 
@@ -180,6 +211,36 @@ case "${SHELL##*/}" in
     ;;
 esac
 
+# Skip the prompt entirely if completion is already configured.
+completion_configured=false
+case "$shell_kind" in
+  bash)
+    completion_dir="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
+    completion_path="$completion_dir/$BINARY"
+    [ -f "$completion_path" ] && completion_configured=true
+    ;;
+  fish)
+    completion_dir="${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions"
+    completion_path="$completion_dir/$BINARY.fish"
+    [ -f "$completion_path" ] && completion_configured=true
+    ;;
+  zsh)
+    rc="${ZDOTDIR:-$HOME}/.zshrc"
+    completion_path="$rc"
+    zsh_line="source <(\"$INSTALL_DIR/$BINARY\" completion zsh -c)"
+    if [ -f "$rc" ] && grep -Fq "$zsh_line" "$rc"; then
+      completion_configured=true
+    fi
+    ;;
+esac
+
+if [ "$completion_configured" = true ]; then
+  printf '\n'
+  step "${shell_kind} completion already configured in ${completion_path} — skipping"
+  print_next_steps
+  exit 0
+fi
+
 printf '\n  %sSet up tab completion for %s?%s [Y/n] ' "$C_BOLD" "$shell_kind" "$C_RESET"
 if ! read -r response < /dev/tty; then
   echo
@@ -196,26 +257,18 @@ esac
 
 case "$shell_kind" in
   bash)
-    dir="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
-    mkdir -p "$dir"
-    "$INSTALL_DIR/$BINARY" completion bash -c > "$dir/$BINARY"
-    ok "Added bash completion to ${dir}/${BINARY} — restart your shell to enable"
+    mkdir -p "$completion_dir"
+    "$INSTALL_DIR/$BINARY" completion bash -c > "$completion_path"
+    ok "Added bash completion to ${completion_path} — restart your shell to enable"
     ;;
   fish)
-    dir="${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions"
-    mkdir -p "$dir"
-    "$INSTALL_DIR/$BINARY" completion fish -c > "$dir/$BINARY.fish"
-    ok "Added fish completion to ${dir}/${BINARY}.fish"
+    mkdir -p "$completion_dir"
+    "$INSTALL_DIR/$BINARY" completion fish -c > "$completion_path"
+    ok "Added fish completion to ${completion_path}"
     ;;
   zsh)
-    rc="${ZDOTDIR:-$HOME}/.zshrc"
-    line="source <(\"$INSTALL_DIR/$BINARY\" completion zsh -c)"
-    if [ -f "$rc" ] && grep -Fq "$line" "$rc"; then
-      step "zsh completion already present in ${rc}"
-    else
-      printf '\n# chatwoot CLI completion\n%s\n' "$line" >> "$rc"
-      ok "Added zsh completion to ${rc} — restart your shell to enable"
-    fi
+    printf '\n# chatwoot CLI completion\n%s\n' "$zsh_line" >> "$rc"
+    ok "Added zsh completion to ${rc} — restart your shell to enable"
     ;;
 esac
 
