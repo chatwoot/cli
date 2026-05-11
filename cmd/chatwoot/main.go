@@ -136,7 +136,7 @@ func printOutdatedNotice(w io.Writer, current string, color bool) {
 	if !update.IsOutdated(current, cache.LatestVersion) {
 		return
 	}
-	fmt.Fprint(w, update.FormatNotice(current, cache.LatestVersion, color))
+	_, _ = fmt.Fprint(w, update.FormatNotice(current, cache.LatestVersion, color))
 }
 
 // rewriteIDFirstGrammar swaps `<noun> <id> <verb>` to `<noun> <verb> <id>`
