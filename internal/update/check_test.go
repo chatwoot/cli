@@ -1,7 +1,13 @@
 package update
 
 import (
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -89,6 +95,222 @@ func TestFormatNotice(t *testing.T) {
 	}
 	if !strings.HasSuffix(dim, "\x1b[0m\n") {
 		t.Fatalf("dim notice should end with reset before final newline: %q", dim)
+	}
+}
+
+func TestFetchLatestFrom(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if got := r.Header.Get("Accept"); got != "application/vnd.github+json" {
+				t.Errorf("Accept header = %q, want application/vnd.github+json", got)
+			}
+			_, _ = w.Write([]byte(`{"tag_name":"v9.9.9"}`))
+		}))
+		defer srv.Close()
+
+		got, err := fetchLatestFrom(srv.URL)
+		if err != nil {
+			t.Fatalf("fetchLatestFrom() error = %v", err)
+		}
+		if got != "v9.9.9" {
+			t.Fatalf("fetchLatestFrom() = %q, want v9.9.9", got)
+		}
+	})
+
+	t.Run("non-200", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "rate limited", http.StatusForbidden)
+		}))
+		defer srv.Close()
+
+		_, err := fetchLatestFrom(srv.URL)
+		if err == nil || !strings.Contains(err.Error(), "403") {
+			t.Fatalf("fetchLatestFrom() error = %v, want one containing 403", err)
+		}
+	})
+
+	t.Run("missing tag_name", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer srv.Close()
+
+		_, err := fetchLatestFrom(srv.URL)
+		if err == nil || !strings.Contains(err.Error(), "tag_name") {
+			t.Fatalf("fetchLatestFrom() error = %v, want one mentioning tag_name", err)
+		}
+	})
+
+	t.Run("malformed json", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`not-json`))
+		}))
+		defer srv.Close()
+
+		if _, err := fetchLatestFrom(srv.URL); err == nil {
+			t.Fatal("fetchLatestFrom() error = nil, want decode error")
+		}
+	})
+
+	t.Run("bad url", func(t *testing.T) {
+		if _, err := fetchLatestFrom("://not a url"); err == nil {
+			t.Fatal("fetchLatestFrom() error = nil for invalid URL")
+		}
+	})
+}
+
+func TestStartRefresh(t *testing.T) {
+	t.Run("fresh cache short-circuits", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		if err := SaveCache(&Cache{LatestVersion: "v1.0.0", CheckedAt: time.Now()}); err != nil {
+			t.Fatalf("SaveCache() error = %v", err)
+		}
+
+		var calls int32
+		fetch := func() (string, error) {
+			atomic.AddInt32(&calls, 1)
+			return "v9.0.0", nil
+		}
+		wait := startRefresh(time.Second, fetch)
+		wait()
+
+		if got := atomic.LoadInt32(&calls); got != 0 {
+			t.Fatalf("fetch was called %d times, want 0", got)
+		}
+
+		cache, _ := LoadCache()
+		if cache == nil || cache.LatestVersion != "v1.0.0" {
+			t.Fatalf("cache changed unexpectedly: %#v", cache)
+		}
+	})
+
+	t.Run("stale cache triggers fetch and updates cache", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		stale := time.Now().Add(-CacheTTL - time.Hour)
+		if err := SaveCache(&Cache{LatestVersion: "v1.0.0", CheckedAt: stale}); err != nil {
+			t.Fatalf("SaveCache() error = %v", err)
+		}
+
+		fetch := func() (string, error) { return "v9.0.0", nil }
+		wait := startRefresh(time.Second, fetch)
+		wait()
+
+		cache, err := LoadCache()
+		if err != nil {
+			t.Fatalf("LoadCache() error = %v", err)
+		}
+		if cache == nil || cache.LatestVersion != "v9.0.0" {
+			t.Fatalf("cache = %#v, want LatestVersion=v9.0.0", cache)
+		}
+		if !cache.CheckedAt.After(stale) {
+			t.Fatalf("CheckedAt not advanced: %v <= %v", cache.CheckedAt, stale)
+		}
+	})
+
+	t.Run("missing cache triggers fetch", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+
+		fetch := func() (string, error) { return "v2.3.4", nil }
+		wait := startRefresh(time.Second, fetch)
+		wait()
+
+		cache, _ := LoadCache()
+		if cache == nil || cache.LatestVersion != "v2.3.4" {
+			t.Fatalf("cache = %#v, want LatestVersion=v2.3.4", cache)
+		}
+	})
+
+	t.Run("fetch error leaves cache untouched", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		stale := time.Now().Add(-CacheTTL - time.Hour)
+		if err := SaveCache(&Cache{LatestVersion: "v1.0.0", CheckedAt: stale}); err != nil {
+			t.Fatalf("SaveCache() error = %v", err)
+		}
+
+		fetch := func() (string, error) { return "", errors.New("offline") }
+		wait := startRefresh(time.Second, fetch)
+		wait()
+
+		cache, _ := LoadCache()
+		if cache == nil {
+			t.Fatal("cache deleted after fetch error")
+		}
+		if cache.LatestVersion != "v1.0.0" {
+			t.Fatalf("LatestVersion = %q, want v1.0.0", cache.LatestVersion)
+		}
+		// CheckedAt may differ by a sub-nanosecond due to JSON round-trip,
+		// but must not have advanced into freshness territory.
+		if IsFresh(cache) {
+			t.Fatalf("cache became fresh after fetch error: CheckedAt=%v", cache.CheckedAt)
+		}
+	})
+
+	t.Run("empty fetch result leaves cache untouched", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+
+		fetch := func() (string, error) { return "", nil }
+		wait := startRefresh(time.Second, fetch)
+		wait()
+
+		cache, _ := LoadCache()
+		if cache != nil {
+			t.Fatalf("cache written for empty fetch result: %#v", cache)
+		}
+	})
+
+	t.Run("wait honors timeout when fetch is slow", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+
+		release := make(chan struct{})
+		fetch := func() (string, error) {
+			<-release
+			return "v9.0.0", nil
+		}
+		wait := startRefresh(20*time.Millisecond, fetch)
+
+		start := time.Now()
+		wait()
+		elapsed := time.Since(start)
+		close(release) // let the goroutine exit so it doesn't leak
+
+		if elapsed > 200*time.Millisecond {
+			t.Fatalf("wait took %v, expected ~20ms", elapsed)
+		}
+
+		// Cache should NOT yet be populated — the fetch was still blocked.
+		cache, _ := LoadCache()
+		if cache != nil {
+			t.Fatalf("cache populated before fetch returned: %#v", cache)
+		}
+	})
+}
+
+func TestStartRefreshNoNetwork(t *testing.T) {
+	// Cover the StartRefresh wrapper without making a real GitHub call:
+	// a fresh cache short-circuits before the injected fetcher runs.
+	t.Setenv("HOME", t.TempDir())
+	if err := SaveCache(&Cache{LatestVersion: "v1.0.0", CheckedAt: time.Now()}); err != nil {
+		t.Fatalf("SaveCache() error = %v", err)
+	}
+	wait := StartRefresh(10 * time.Millisecond)
+	wait() // must be a no-op; nothing to assert beyond "doesn't hang or panic"
+}
+
+func TestLoadCacheMalformedJSON(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	dir := filepath.Join(home, ".chatwoot")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	path := filepath.Join(dir, "version-cache.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if _, err := LoadCache(); err == nil {
+		t.Fatal("LoadCache() error = nil for malformed JSON")
 	}
 }
 

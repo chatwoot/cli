@@ -102,8 +102,14 @@ func IsFresh(c *Cache) bool {
 
 // FetchLatest hits GitHub for the most recent release tag.
 func FetchLatest() (string, error) {
+	return fetchLatestFrom(LatestReleaseURL)
+}
+
+// fetchLatestFrom is the workhorse — split out so tests can point at an
+// httptest.Server instead of the real GitHub endpoint.
+func fetchLatestFrom(url string) (string, error) {
 	client := &http.Client{Timeout: fetchTimeout}
-	req, err := http.NewRequest(http.MethodGet, LatestReleaseURL, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -139,6 +145,12 @@ func FetchLatest() (string, error) {
 // We deliberately use stale cache data for the *current* run so the user
 // never pays the network cost on the hot path.
 func StartRefresh(waitFor time.Duration) func() {
+	return startRefresh(waitFor, FetchLatest)
+}
+
+// startRefresh is the testable core of StartRefresh — fetch is injected
+// so tests can avoid the real GitHub round-trip.
+func startRefresh(waitFor time.Duration, fetch func() (string, error)) func() {
 	cache, _ := LoadCache()
 	if IsFresh(cache) {
 		return func() {}
@@ -146,7 +158,7 @@ func StartRefresh(waitFor time.Duration) func() {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		latest, err := FetchLatest()
+		latest, err := fetch()
 		if err != nil || latest == "" {
 			return
 		}
