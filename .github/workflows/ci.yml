@@ -17,13 +17,16 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: go mod tidy (drift check)
+        run: go mod tidy -diff
 
       - name: go vet
         run: go vet ./...
@@ -32,23 +35,87 @@ jobs:
         run: go build ./...
 
       - name: go test
-        run: go test -race -count=1 ./...
+        run: go test -race -count=1 -covermode=atomic -coverprofile=cover.out ./...
+
+      - name: Upload coverage profile
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-profile
+          path: cover.out
+          retention-days: 7
+
+  coverage-comment:
+    # Skip fork PRs and Dependabot: GITHUB_TOKEN is read-only there, so
+    # `pull-requests: write` is ignored and the sticky-comment step would fail.
+    # Same-repo PRs get the comment; fork/dependabot PRs simply skip this job.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read           # to fetch the baseline coverage artifact from main
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Coverage report
+        uses: fgrosse/go-coverage-report@v1.3.0
+        with:
+          coverage-artifact-name: coverage-profile
+          coverage-file-name: cover.out
+          root-package: github.com/chatwoot/cli
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
 
   lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: golangci-lint
-        # v8 defaults to golangci-lint v2.x, which supports recent Go (1.25+).
-        uses: golangci/golangci-lint-action@v8
+        # v9 defaults to golangci-lint v2.x, which supports recent Go (1.25+).
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           args: --timeout=5m
@@ -57,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run shellcheck on shell scripts
         uses: ludeeus/action-shellcheck@master
