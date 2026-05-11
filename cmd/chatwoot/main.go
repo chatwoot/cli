@@ -8,11 +8,18 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/chatwoot/cli/internal/cmd"
+	"github.com/chatwoot/cli/internal/update"
 	kongcompletion "github.com/jotaen/kong-completion"
 )
+
+// updateWait caps how long main blocks at exit waiting for the background
+// release-check to finish. The fetch was started in parallel with the
+// command, so this is mostly a tail latency for unlucky slow networks.
+const updateWait = 1500 * time.Millisecond
 
 var version = "dev"
 
@@ -67,16 +74,67 @@ func main() {
 		cmdStr == "whoami" ||
 		cmdStr == "version"
 
+	// Start the outdated-version check in the background so its network
+	// round-trip overlaps with the command. shouldShowNotice gates both
+	// the fetch and the eventual notice — there's no point fetching for
+	// quiet/JSON/CSV runs where we'd never print anything.
+	notice := shouldShowNotice(&cli, cmdStr, version)
+	var waitRefresh = func() {}
+	if notice {
+		waitRefresh = update.StartRefresh(updateWait)
+	}
+
 	app, err := cmd.NewApp(&cli, skipAuth, version)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	if err := ctx.Run(app); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	runErr := ctx.Run(app)
+
+	if notice {
+		waitRefresh()
+		printOutdatedNotice(version)
+	}
+
+	if runErr != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", runErr)
 		os.Exit(1)
 	}
+}
+
+// shouldShowNotice decides whether the outdated-version banner is worth
+// running for this invocation. We bail out for machine-readable output,
+// quiet mode, dev builds, and commands where a banner would be noise
+// (the version command does its own --check, completion is shell-eval'd).
+func shouldShowNotice(cli *cmd.CLI, cmdStr, version string) bool {
+	if cli.Quiet || cli.Output != "text" {
+		return false
+	}
+	if version == "" || version == "dev" {
+		return false
+	}
+	if strings.HasPrefix(cmdStr, "version") || strings.HasPrefix(cmdStr, "completion") {
+		return false
+	}
+	return true
+}
+
+// printOutdatedNotice writes a short upgrade hint to stderr when the
+// cached latest tag is newer than the running version. Failures (missing
+// cache, fetch never completed, parse error) silently skip the notice —
+// this is a nice-to-have, not a correctness path.
+func printOutdatedNotice(current string) {
+	cache, err := update.LoadCache()
+	if err != nil || cache == nil {
+		return
+	}
+	if !update.IsOutdated(current, cache.LatestVersion) {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "\nA new version of chatwoot is available: %s → %s\n",
+		update.DisplayVersion(current), update.DisplayVersion(cache.LatestVersion))
+	fmt.Fprintln(os.Stderr, "  curl -fsSL https://chwt.app/install-cli | sh")
 }
 
 // rewriteIDFirstGrammar swaps `<noun> <id> <verb>` to `<noun> <verb> <id>`
