@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -120,14 +120,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: golangci-lint
-        # v8 defaults to golangci-lint v2.x, which supports recent Go (1.25+).
-        uses: golangci/golangci-lint-action@v8
+        # v9 defaults to golangci-lint v2.x, which supports recent Go (1.25+).
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           args: --timeout=5m
