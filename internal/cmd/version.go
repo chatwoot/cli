@@ -13,6 +13,9 @@ type VersionCmd struct {
 	Check bool `help:"Check GitHub for a newer release."`
 }
 
+// fetchLatest is the indirection seam tests use to stub the GitHub call.
+var fetchLatest = update.FetchLatest
+
 func (c *VersionCmd) Run(app *App) error {
 	v := app.Version
 	if v == "" {
@@ -23,7 +26,7 @@ func (c *VersionCmd) Run(app *App) error {
 		return err
 	}
 
-	latest, err := update.FetchLatest()
+	latest, err := fetchLatest()
 	if err != nil {
 		return fmt.Errorf("check failed: %w", err)
 	}
