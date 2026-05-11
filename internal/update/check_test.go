@@ -296,6 +296,40 @@ func TestStartRefreshNoNetwork(t *testing.T) {
 	wait() // must be a no-op; nothing to assert beyond "doesn't hang or panic"
 }
 
+func TestSaveCacheFailsWhenHomeIsNotADir(t *testing.T) {
+	// HOME pointing at a regular file means MkdirAll inside ~/.chatwoot
+	// can't succeed regardless of permissions — covers SaveCache's
+	// MkdirAll error branch portably (works even when tests run as root).
+	tmp := t.TempDir()
+	homeFile := filepath.Join(tmp, "home")
+	if err := os.WriteFile(homeFile, []byte("not a dir"), 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	t.Setenv("HOME", homeFile)
+
+	if err := SaveCache(&Cache{LatestVersion: "v1", CheckedAt: time.Now()}); err == nil {
+		t.Fatal("SaveCache() error = nil, want failure when HOME is a file")
+	}
+}
+
+func TestLoadCacheFailsWhenCachePathIsADir(t *testing.T) {
+	// A directory at the cache file path causes ReadFile to return a
+	// non-IsNotExist error — covers LoadCache's "read failed" branch.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, ".chatwoot")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "version-cache.json"), 0700); err != nil {
+		t.Fatalf("MkdirAll cache-as-dir error = %v", err)
+	}
+
+	if _, err := LoadCache(); err == nil {
+		t.Fatal("LoadCache() error = nil, want failure when cache path is a directory")
+	}
+}
+
 func TestLoadCacheMalformedJSON(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

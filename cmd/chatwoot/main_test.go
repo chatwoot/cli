@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,6 +17,37 @@ import (
 	"github.com/chatwoot/cli/internal/update"
 	"github.com/zalando/go-keyring"
 )
+
+// captureStderrAndRunMain swaps os.Stderr for a pipe, runs main() with
+// the given argv, and returns whatever main() wrote to stderr. The
+// caller is responsible for any other setup (HOME, cache fixtures,
+// version stamp).
+func captureStderrAndRunMain(t *testing.T, argv []string) string {
+	t.Helper()
+
+	origStderr := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	os.Stderr = w
+
+	origArgs := os.Args
+	os.Args = argv
+	t.Cleanup(func() {
+		os.Stderr = origStderr
+		os.Args = origArgs
+	})
+
+	main()
+
+	_ = w.Close()
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ReadAll(stderr): %v", err)
+	}
+	return string(data)
+}
 
 func TestRewriteIDFirstGrammar(t *testing.T) {
 	cases := []struct {
@@ -213,6 +245,77 @@ func TestPrintOutdatedNotice(t *testing.T) {
 			t.Fatalf("color=true missing ANSI dim/reset: %q", out)
 		}
 	})
+}
+
+// stampVersion overrides the package-level version variable for the
+// duration of a test. main() reads this when deciding whether to show
+// the outdated-version notice.
+func stampVersion(t *testing.T, v string) {
+	t.Helper()
+	orig := version
+	version = v
+	t.Cleanup(func() { version = orig })
+}
+
+// seedCache writes a version cache file with the given latest tag and
+// CheckedAt=now, so StartRefresh sees a fresh cache and the notice
+// path reads it directly without a network call.
+func seedCache(t *testing.T, latest string) {
+	t.Helper()
+	if err := update.SaveCache(&update.Cache{LatestVersion: latest, CheckedAt: time.Now()}); err != nil {
+		t.Fatalf("SaveCache: %v", err)
+	}
+}
+
+func TestMainShowsOutdatedNotice(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	stampVersion(t, "v0.0.1")
+	seedCache(t, "v99.0.0")
+
+	stderr := captureStderrAndRunMain(t, []string{"chatwoot", "config", "path"})
+
+	if !strings.Contains(stderr, "v0.0.1 → v99.0.0") {
+		t.Fatalf("stderr missing outdated banner: %q", stderr)
+	}
+	if !strings.Contains(stderr, "chwt.app/install-cli") {
+		t.Fatalf("stderr missing install hint: %q", stderr)
+	}
+}
+
+func TestMainSuppressesNoticeWhenUpToDate(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	stampVersion(t, "v1.2.3")
+	seedCache(t, "v1.2.3")
+
+	stderr := captureStderrAndRunMain(t, []string{"chatwoot", "config", "path"})
+
+	if strings.Contains(stderr, "new version") || strings.Contains(stderr, "→") {
+		t.Fatalf("up-to-date run still printed a banner: %q", stderr)
+	}
+}
+
+func TestMainSuppressesNoticeForDevBuild(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	stampVersion(t, "dev")
+	seedCache(t, "v99.0.0")
+
+	stderr := captureStderrAndRunMain(t, []string{"chatwoot", "config", "path"})
+
+	if strings.Contains(stderr, "new version") {
+		t.Fatalf("dev build was nagged: %q", stderr)
+	}
+}
+
+func TestMainSuppressesNoticeForJSONOutput(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	stampVersion(t, "v0.0.1")
+	seedCache(t, "v99.0.0")
+
+	stderr := captureStderrAndRunMain(t, []string{"chatwoot", "-o", "json", "config", "path"})
+
+	if strings.Contains(stderr, "new version") {
+		t.Fatalf("json output still printed banner to stderr: %q", stderr)
+	}
 }
 
 func TestAssignMeAccountOverrideSmoke(t *testing.T) {
