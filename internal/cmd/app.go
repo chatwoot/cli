@@ -34,16 +34,17 @@ func NewApp(cli *CLI, skipAuth bool, version string) (*App, error) {
 		return nil, fmt.Errorf("not authenticated. Run 'chatwoot auth login' to set up credentials")
 	}
 
+	effectiveCfg := *cfg
 	if cli.Account > 0 {
-		cfg.AccountID = cli.Account
+		effectiveCfg.AccountID = cli.Account
 	}
 
-	apiKey, _, err := config.ResolveAPIKey(cfg)
+	apiKey, _, err := config.ResolveAPIKey(&effectiveCfg)
 	if err != nil {
 		return nil, fmt.Errorf("not authenticated: %w", err)
 	}
 
-	client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID, sdk.WithVerbose(cli.Verbose))
+	client := sdk.NewClient(effectiveCfg.BaseURL, apiKey, effectiveCfg.AccountID, sdk.WithVerbose(cli.Verbose))
 
 	return &App{
 		Client:  client,
