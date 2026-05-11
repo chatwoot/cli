@@ -22,7 +22,7 @@ run = "curl -fL https://raw.githubusercontent.com/chatwoot/chatwoot/develop/swag
 [tasks.agents]
 description = "Create AGENTS.md symlinks to CLAUDE.md in all module directories"
 run = """
-find . -name "CLAUDE.md" -type f | while read file; do
+find . -name "CLAUDE.md" -type f -print0 | while IFS= read -r -d '' file; do
   dir=$(dirname "$file")
   ln -sf CLAUDE.md "$dir/AGENTS.md"
   echo "Created symlink: $dir/AGENTS.md -> CLAUDE.md"
