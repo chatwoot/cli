@@ -10,7 +10,7 @@ CLI for [Chatwoot](https://www.chatwoot.com) — manage conversations, send repl
 curl -fsSL https://chwt.app/install-cli | sh
 ```
 
-For installing a specific version, or to install the CLI on Windows, follow the instructions [here](https://developers.chatwoot.com/cli#install).
+For a specific version or Windows, see the [install docs](https://developers.chatwoot.com/cli#install).
 
 ## Setup
 
@@ -18,136 +18,59 @@ For installing a specific version, or to install the CLI on Windows, follow the 
 chatwoot auth login
 ```
 
-You'll be prompted for:
-- **Base URL** — your Chatwoot instance (e.g. `https://app.chatwoot.com`)
-- **API Key** — your agent API access token
-- **Account ID** — your account number
-
-Credentials are validated against the API before saving. Non-secret config is stored at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI, coding agents, or headless environments, set `CHATWOOT_API_KEY` to override the saved keyring token.
+You'll be prompted for your **Base URL**, **API Key**, and **Account ID**. Credentials are validated before saving. Non-secret config lives at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI or headless environments, set `CHATWOOT_API_KEY` to override the keyring.
 
 ## Agent Skill
 
-If you use Claude Code, Cursor, or another AI coding assistant, install the agent skill so it knows the CLI's grammar, JSON shapes, and safety rules before sending customer-visible replies:
+If you use Claude Code, Cursor, or another AI coding assistant, install the agent skill so it knows the CLI's grammar and safety rules before sending customer-visible replies:
 
 ```bash
 npx skills add chatwoot/cli              # current project
 npx skills add chatwoot/cli --global     # all projects
 ```
 
-Agents run non-interactively, so authenticate once with `chatwoot auth login` (or set `CHATWOOT_API_KEY` for sandboxed environments). See the [agent skill docs](https://developers.chatwoot.com/cli/agent-skill) for details.
+See the [agent skill docs](https://developers.chatwoot.com/cli/agent-skill) for details.
 
-## CLI Usage
+## Usage
 
 The CLI uses a simple noun grammar:
 
 - **Plural noun = list:** `chatwoot convs`, `chatwoot contacts`, `chatwoot agents`
-- **Singular + id + verb:** `chatwoot conv 123 reply "thanks"` — id before verb, the way you'd say it.
-- **`<noun> <id>`** alone is shorthand for view: `chatwoot conv 123` views conversation 123.
-
-### Conversations — list
+- **`<noun> <id>`** views: `chatwoot conv 123`
+- **`<noun> <id> <verb>`** acts: `chatwoot conv 123 reply "thanks"` — id before verb, the way you'd say it.
 
 ```bash
-chatwoot convs                                 # Open conversations assigned to you (default)
-chatwoot convs -s resolved                     # Resolved conversations
+chatwoot convs                                 # Open conversations assigned to you
 chatwoot convs --assignee all --inbox 5        # All conversations in inbox 5
-chatwoot convs -l billing,urgent               # Filter by labels
 chatwoot convs --query "refund"                # Search by message content
-```
 
-### Conversations — act on one
-
-```bash
-chatwoot conv 123                              # View (default)
-chatwoot conv 123 messages                     # List messages
-chatwoot conv 123 reply "Thanks, looking into it"
+chatwoot conv 123                              # View
+chatwoot conv 123 reply "Looking into it"
 chatwoot conv 123 reply "internal note" --private
-chatwoot conv 123 resolve                      # Mark resolved
-chatwoot conv 123 open                         # Set status to open
-chatwoot conv 123 pending                      # Set status to pending
-chatwoot conv 123 snooze                       # Snooze until next reply
-chatwoot conv 123 snooze --until 24h           # Or 7d, 2026-05-10
-chatwoot conv 123 assign --agent me            # Assign to yourself
-chatwoot conv 123 assign --agent alice         # By name (case-insensitive substring)
-chatwoot conv 123 assign --agent 42            # By agent ID
-chatwoot conv 123 assign --team 7              # Assign to a team
-chatwoot conv 123 unassign
-chatwoot conv 123 label billing,urgent         # Set labels (replaces existing)
+chatwoot conv 123 resolve                      # Or: open, pending, snooze
+chatwoot conv 123 assign --agent me            # Or: --agent alice, --agent 42, --team 7
+chatwoot conv 123 label billing,urgent
 chatwoot conv 123 priority urgent              # urgent | high | medium | low | none
+
+chatwoot contacts --search "john"
+chatwoot contact 456 conversations
+
+chatwoot inboxes / agents / labels / teams     # List
+chatwoot me                                    # Your profile
 ```
 
-### Contacts
-
-```bash
-chatwoot contacts                              # List contacts
-chatwoot contacts --search "john"              # Search by name, email, or phone
-chatwoot contact 456                           # View
-chatwoot contact 456 conversations             # Conversations for this contact
-```
-
-### Inboxes, agents, labels, teams
-
-```bash
-chatwoot inboxes                               # List inboxes
-chatwoot inbox 5                               # View one
-chatwoot agents                                # List agents
-chatwoot labels                                # List account-level labels
-chatwoot teams                                 # List teams
-```
-
-### Profile
-
-```bash
-chatwoot me                                    # Show your profile
-```
-
-### Auth & config
-
-```bash
-chatwoot auth login                            # Interactive login (caches user_id)
-chatwoot auth logout                           # Remove saved credentials
-chatwoot auth status                           # Show current user and instance
-chatwoot config path                           # Print config file path
-chatwoot config view                           # Print config and credential source
-```
-
-## Global Flags
-
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--output` | `-o` | Output format: `text`, `json`, `csv` |
-| `--account` | `-a` | Override account ID |
-| `--quiet` | `-q` | Print only IDs (for scripting) |
-| `--no-color` | | Disable colored output |
-| `--verbose` | `-v` | Show request/response details |
-| `--version` | | Print version |
+Run `chatwoot --help` or see the [full command reference](https://developers.chatwoot.com/cli/commands).
 
 ## Output Formats
 
-**Text** (default) — human-readable tables:
-
-```
-ID   Status  Contact       Assignee       Inbox
-194  open    Jane Doe      Shivam Mishra  WebWidget
-197  open    Vinay K       Shivam Mishra  Whatsapp
-```
-
-**JSON** — full API response, pipe to `jq`:
+`-o text` (default), `-o json`, `-o csv`, or `-q` (IDs only, for scripting):
 
 ```bash
 chatwoot convs -o json | jq '.data.payload[].id'
-```
-
-**CSV** — for spreadsheets and data processing:
-
-```bash
-chatwoot agents -o csv > agents.csv
-```
-
-**Quiet** — IDs only, one per line:
-
-```bash
 chatwoot convs -q | xargs -I{} chatwoot conv view {}
 ```
+
+For piping, batching, and CI workflows, see the [scripting guide](https://developers.chatwoot.com/cli/scripting).
 
 ## License
 
