@@ -10,22 +10,7 @@ CLI for [Chatwoot](https://www.chatwoot.com) — manage conversations, send repl
 curl -fsSL https://chwt.app/install-cli | sh
 ```
 
-The script installs to `~/.local/bin/chatwoot` by default. Override with environment variables:
-
-```bash
-CHATWOOT_VERSION=v0.2.0 CHATWOOT_INSTALL_DIR=/usr/local/bin curl -fsSL https://chwt.app/install-cli | sh
-```
-
-**Windows** — download `chatwoot_<version>_Windows_x86_64.zip` from the [releases page](https://github.com/chatwoot/cli/releases/latest) and extract `chatwoot.exe`.
-
-**From source** — requires Go 1.25+:
-
-```bash
-go install github.com/chatwoot/cli/cmd/chatwoot@latest
-# or
-git clone https://github.com/chatwoot/cli.git && cd cli
-go build -o chatwoot ./cmd/chatwoot/
-```
+For installing a specific version, or to install the CLI on Windows, follow the instructions [here](https://developers.chatwoot.com/cli#install).
 
 ## Setup
 
@@ -50,24 +35,6 @@ npx skills add chatwoot/cli --global     # all projects
 ```
 
 Agents run non-interactively, so authenticate once with `chatwoot auth login` (or set `CHATWOOT_API_KEY` for sandboxed environments). See the [agent skill docs](https://developers.chatwoot.com/cli/agent-skill) for details.
-
-## Shell Completions
-
-The install script offers to set this up interactively. To do it manually, write the completion code to your shell's standard auto-load location:
-
-```bash
-# bash
-chatwoot completion bash -c > ~/.local/share/bash-completion/completions/chatwoot
-
-# fish
-chatwoot completion fish -c > ~/.config/fish/completions/chatwoot.fish
-
-# zsh — resolve the install path once so future PATH changes can't hijack the source line
-chatwoot_bin="$(command -v chatwoot)"
-echo "source <(\"$chatwoot_bin\" completion zsh -c)" >> ~/.zshrc
-```
-
-Restart your shell (or `source` the rc file) and tab-completion will work for commands, subcommands, and flags. Run `chatwoot completion --help` for details.
 
 ## CLI Usage
 
