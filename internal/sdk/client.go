@@ -95,7 +95,7 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 		if err != nil {
 			return fmt.Errorf("failed to read response: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "< %s\n", string(body))
+		fmt.Fprintf(os.Stderr, "< %s\n", redactSensitiveJSON(body))
 		if err := json.Unmarshal(body, v); err != nil {
 			return fmt.Errorf("failed to decode response: %w", err)
 		}
@@ -107,6 +107,47 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 	}
 
 	return nil
+}
+
+func redactSensitiveJSON(body []byte) string {
+	var value interface{}
+	if err := json.Unmarshal(body, &value); err != nil {
+		return string(body)
+	}
+
+	redactSensitiveFields(value)
+
+	redacted, err := json.Marshal(value)
+	if err != nil {
+		return string(body)
+	}
+	return string(redacted)
+}
+
+func redactSensitiveFields(value interface{}) {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		for key, child := range typed {
+			if isSensitiveField(key) {
+				typed[key] = "[REDACTED]"
+				continue
+			}
+			redactSensitiveFields(child)
+		}
+	case []interface{}:
+		for _, child := range typed {
+			redactSensitiveFields(child)
+		}
+	}
+}
+
+func isSensitiveField(key string) bool {
+	switch strings.ToLower(key) {
+	case "access_token", "api_access_token", "pubsub_token":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *Client) Get(path string, params url.Values, v interface{}) error {
