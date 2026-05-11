@@ -24,8 +24,28 @@ if [[ ! -f "$config_file" ]]; then
 fi
 
 base_url=$(sed -nE 's/^base_url:[[:space:]]*//p' "$config_file" | head -1 | tr -d '"' | tr -d "'")
+
+# Parse the URL safely: scheme must be http, no userinfo allowed, host must be
+# a literal loopback address. Bash glob matches like `http://localhost:*` are
+# unsafe because `http://localhost:3000@attacker.example` matches the pattern
+# but Go's URL parser treats `attacker.example` as the host.
 case "$base_url" in
-  http://localhost:*|http://localhost|http://127.0.0.1:*|http://127.0.0.1|http://0.0.0.0:*|http://0.0.0.0)
+  http://*) url_rest="${base_url#http://}" ;;
+  *)
+    echo "smoke: refusing to run against non-http base_url: ${base_url}" >&2
+    exit 1
+    ;;
+esac
+case "$url_rest" in
+  *@*)
+    echo "smoke: refusing — base_url contains userinfo: ${base_url}" >&2
+    exit 1
+    ;;
+esac
+host_port="${url_rest%%/*}"
+host="${host_port%%:*}"
+case "$host" in
+  localhost|127.0.0.1|0.0.0.0)
     ;;
   *)
     echo "smoke: refusing to run against non-localhost base_url: ${base_url}" >&2
