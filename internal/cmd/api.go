@@ -16,8 +16,20 @@ type ApiCmd struct {
 	Method string   `short:"X" placeholder:"METHOD" help:"HTTP method. Defaults to POST with --data, otherwise GET."`
 	Data   string   `short:"d" placeholder:"JSON|@FILE" help:"JSON request body, or @file to read body from a file."`
 	Header []string `short:"H" placeholder:"HEADER" help:"Additional request header, as 'Name: value'. Repeatable."`
-	Exact  bool     `help:"Use the path exactly as provided instead of account-scoping it."`
-	Path   string   `arg:"" help:"Endpoint path. Account-relative by default, e.g. /conversations/123."`
+	Exact  bool     `help:"Use the path exactly as provided under the configured base URL."`
+	Path   string   `arg:"" help:"Endpoint path. /conversations/123 expands under the configured account."`
+}
+
+func (c *ApiCmd) Help() string {
+	return `Account-relative paths such as /conversations/123 are expanded under
+/api/v1/accounts/<account_id>. Use --exact for non-account-scoped paths.
+
+The default method is GET, or POST when --data is provided. Override with -X.
+
+Examples:
+  chatwoot api /conversations/123
+  chatwoot api -X PATCH /conversations/123 --data '{"status":"open"}'
+  chatwoot api --exact /api/v1/profile`
 }
 
 func (c *ApiCmd) Run(app *App) error {
