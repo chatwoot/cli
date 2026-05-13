@@ -192,3 +192,6 @@ chatwoot config writes on
 chatwoot api -X PATCH /conversations/123 --data '{"status":"open"}'
 chatwoot config writes off
 ```
+
+Use the application Swagger as the endpoint reference before raw API calls:
+https://raw.githubusercontent.com/chatwoot/chatwoot/develop/swagger/tag_groups/application_swagger.json
