@@ -37,6 +37,10 @@ explicitly.
 - `chatwoot auth login` is interactive (prompts for base URL, API key,
   account ID). If invoked headlessly it will fail — surface the env-var path
   instead.
+- Prefer first-class commands over `chatwoot api`. Use raw API calls only when
+  no command exists or the user explicitly asks for an endpoint-level call.
+- Before raw API calls, check the application Swagger:
+  https://raw.githubusercontent.com/chatwoot/chatwoot/develop/swagger/tag_groups/application_swagger.json
 - Use `-v` (verbose) to see the underlying HTTP request/response when
   debugging an unexpected result.
 
@@ -117,9 +121,10 @@ chatwoot convs --help         # filters for the list command
 ## Safety — customer-visible writes
 
 Some commands change shared state or send messages a customer or teammate
-will see. Before running any of them in an agent context, **show the user
-the exact command and get explicit approval.** Don't assume approval on one
-conversation extends to another.
+will see. Treat all write operations as privileged actions. Before running any
+of them in an agent context, **show the user the exact command and get explicit
+approval. Never perform writes without user confirmation.** Don't assume
+approval on one conversation extends to another.
 
 Customer- or team-visible (effectively irreversible):
 - `reply` (without `--private`) — the message is sent and cannot be unsent.
@@ -131,7 +136,8 @@ Customer- or team-visible (effectively irreversible):
 - `priority` — visible in dashboards, used for SLA routing.
 - `api -X <method> ...` or `api --data ...` — arbitrary endpoint calls can
   mutate any supported resource. Treat non-GET requests as writes unless the
-  endpoint contract proves otherwise.
+  endpoint contract proves otherwise. Show the exact method, path, and body
+  before running a mutating raw API call.
 - Any bulk operation composed with `-q | xargs` — pause, list what would be
   affected, then confirm.
 
