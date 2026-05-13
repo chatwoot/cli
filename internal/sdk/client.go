@@ -12,11 +12,19 @@ import (
 )
 
 type Client struct {
-	BaseURL    string
-	APIKey     string
-	AccountID  int
-	Verbose    bool
-	httpClient *http.Client
+	BaseURL       string
+	APIKey        string
+	AccountID     int
+	Verbose       bool
+	WritesEnabled bool
+	httpClient    *http.Client
+}
+
+type RawResponse struct {
+	StatusCode int
+	Status     string
+	Header     http.Header
+	Body       []byte
 }
 
 type ClientOption func(*Client)
@@ -30,6 +38,12 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 func WithVerbose(verbose bool) ClientOption {
 	return func(c *Client) {
 		c.Verbose = verbose
+	}
+}
+
+func WithWritesEnabled(enabled bool) ClientOption {
+	return func(c *Client) {
+		c.WritesEnabled = enabled
 	}
 }
 
@@ -66,7 +80,23 @@ func (c *Client) request(method, path string, body io.Reader) (*http.Request, er
 	return req, nil
 }
 
+func (c *Client) rawRequest(method, path string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", c.BaseURL, path), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("api_access_token", c.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	return req, nil
+}
+
 func (c *Client) do(req *http.Request, v interface{}) error {
+	if err := c.requireWritesEnabled(req.Method); err != nil {
+		return err
+	}
+
 	if c.Verbose {
 		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL.String())
 	}
@@ -107,6 +137,53 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 	}
 
 	return nil
+}
+
+func (c *Client) doRaw(req *http.Request) (*RawResponse, error) {
+	if err := c.requireWritesEnabled(req.Method); err != nil {
+		return nil, err
+	}
+
+	if c.Verbose {
+		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL.String())
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if c.Verbose {
+		fmt.Fprintf(os.Stderr, "< %s\n", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	return &RawResponse{
+		StatusCode: resp.StatusCode,
+		Status:     resp.Status,
+		Header:     resp.Header.Clone(),
+		Body:       body,
+	}, nil
+}
+
+func (c *Client) requireWritesEnabled(method string) error {
+	switch strings.ToUpper(method) {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return nil
+	}
+	if c.WritesEnabled {
+		return nil
+	}
+	return fmt.Errorf("writes are disabled. Run 'chatwoot config writes on' to enable write commands")
 }
 
 func redactSensitiveJSON(body []byte) string {
@@ -166,20 +243,42 @@ func (c *Client) Get(path string, params url.Values, v interface{}) error {
 
 // GetRaw makes a GET request to a non-account-scoped path (e.g. /api/v1/profile).
 func (c *Client) GetRaw(path string, params url.Values, v interface{}) error {
-	fullURL := fmt.Sprintf("%s%s", c.BaseURL, path)
+	fullPath := path
 	if len(params) > 0 {
-		fullURL = fmt.Sprintf("%s?%s", fullURL, params.Encode())
+		fullPath = fmt.Sprintf("%s?%s", fullPath, params.Encode())
 	}
 
-	req, err := http.NewRequest(http.MethodGet, fullURL, nil)
+	req, err := c.rawRequest(http.MethodGet, fullPath, nil)
 	if err != nil {
 		return err
 	}
 
-	req.Header.Set("api_access_token", c.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
 	return c.do(req, v)
+}
+
+// RequestRaw makes an authenticated request and returns the response body without decoding it.
+// Account-scoped paths are resolved under /api/v1/accounts/{account_id}; exact paths are
+// resolved relative to BaseURL.
+func (c *Client) RequestRaw(method, path string, body io.Reader, accountScoped bool, headers http.Header) (*RawResponse, error) {
+	var req *http.Request
+	var err error
+	if accountScoped {
+		req, err = c.request(method, path, body)
+	} else {
+		req, err = c.rawRequest(method, path, body)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	for key, values := range headers {
+		req.Header.Del(key)
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+
+	return c.doRaw(req)
 }
 
 func (c *Client) Post(path string, body io.Reader, v interface{}) error {

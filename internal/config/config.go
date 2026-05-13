@@ -10,9 +10,10 @@ import (
 )
 
 type Config struct {
-	BaseURL   string `yaml:"base_url"`
-	AccountID int    `yaml:"account_id"`
-	UserID    int    `yaml:"user_id,omitempty"`
+	BaseURL       string `yaml:"base_url"`
+	AccountID     int    `yaml:"account_id"`
+	UserID        int    `yaml:"user_id,omitempty"`
+	WritesEnabled bool   `yaml:"writes_enabled,omitempty"`
 }
 
 func ConfigDir() (string, error) {

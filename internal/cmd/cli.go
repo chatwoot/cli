@@ -34,6 +34,7 @@ type CLI struct {
 	// Workflow. `me` and `whoami` are aliases of `auth status`.
 	Me     MeCmd     `cmd:"" help:"Show identity and connection (alias of 'auth status')."`
 	Whoami WhoamiCmd `cmd:"" help:"Show identity and connection (alias of 'auth status')."`
+	Api    ApiCmd    `cmd:"" help:"Call an arbitrary Chatwoot API endpoint."`
 
 	// Setup.
 	Auth   AuthCmd   `cmd:"" help:"Login, logout, and status."`
