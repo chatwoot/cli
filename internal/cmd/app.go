@@ -49,7 +49,6 @@ func NewApp(cli *CLI, skipAuth bool, version string) (*App, error) {
 		apiKey,
 		effectiveCfg.AccountID,
 		sdk.WithVerbose(cli.Verbose),
-		sdk.WithWritesEnabled(effectiveCfg.WritesEnabled),
 	)
 
 	return &App{

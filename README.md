@@ -20,13 +20,6 @@ chatwoot auth login
 
 You'll be prompted for your **Base URL**, **API Key**, and **Account ID**. Credentials are validated before saving. Non-secret config lives at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI or headless environments, set `CHATWOOT_API_KEY` to override the keyring.
 
-Write commands are disabled by default. Enable them intentionally before sending replies, changing conversation state, assigning, labeling, or calling mutating raw API endpoints:
-
-```bash
-chatwoot config writes on
-chatwoot config writes off
-```
-
 ## Agent Skill
 
 If you use Claude Code, Cursor, or another AI coding assistant, install the agent skill so it knows the CLI's grammar and safety rules before sending customer-visible replies:

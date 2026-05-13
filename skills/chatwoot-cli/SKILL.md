@@ -34,9 +34,6 @@ explicitly.
 - Authenticate via the OS keyring (`chatwoot auth login`) for local use, or
   the `CHATWOOT_API_KEY` env var for CI / agent / headless contexts. Never
   rely on interactive prompts in scripts.
-- Write commands are disabled by default. The user must intentionally enable
-  them with `chatwoot config writes on`; turn them back off with
-  `chatwoot config writes off`.
 - `chatwoot auth login` is interactive (prompts for base URL, API key,
   account ID). If invoked headlessly it will fail — surface the env-var path
   instead.
@@ -101,7 +98,6 @@ chatwoot convs --help         # filters for the list command
 | `api <path>`                      | Call an arbitrary Chatwoot API endpoint with saved auth headers |
 | `auth login` / `logout`          | Interactive login / remove credentials            |
 | `config path` / `config view`    | Inspect config file location and contents         |
-| `config writes on` / `off`       | Enable or disable write commands                  |
 | `completion <shell>`             | Print shell-completion script                     |
 
 ## Common Mistakes
@@ -124,10 +120,6 @@ Some commands change shared state or send messages a customer or teammate
 will see. Before running any of them in an agent context, **show the user
 the exact command and get explicit approval.** Don't assume approval on one
 conversation extends to another.
-
-The CLI enforces a persisted write gate. If writes are disabled, mutating API
-requests fail before the network call. Do not enable writes unless the user
-explicitly asks you to run a write command.
 
 Customer- or team-visible (effectively irreversible):
 - `reply` (without `--private`) — the message is sent and cannot be unsent.
@@ -188,9 +180,7 @@ chatwoot contact "$id" conversations -o json
 **Raw API call** — account-relative paths are expanded under `/api/v1/accounts/<account_id>`, so do not include the `/api/v1/accounts/...` prefix:
 ```bash
 chatwoot api /conversations/123 -o json
-chatwoot config writes on
 chatwoot api -X PATCH /conversations/123 --data '{"status":"open"}'
-chatwoot config writes off
 ```
 
 Use the application Swagger as the endpoint reference before raw API calls:

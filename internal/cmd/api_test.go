@@ -103,7 +103,7 @@ func TestApiCmdSendsMethodBodyAndHeaders(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1, WritesEnabled: true}); err != nil {
+	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
 		t.Fatalf("config.Save: %v", err)
 	}
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
@@ -120,41 +120,6 @@ func TestApiCmdSendsMethodBodyAndHeaders(t *testing.T) {
 	}).Run(app)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
-	}
-}
-
-func TestApiCmdBlocksMutatingMethodsWhenWritesDisabled(t *testing.T) {
-	setupTestEnv(t)
-
-	called := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		called = true
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
-	app, err := NewApp(&CLI{Output: "text"}, false, "test")
-	if err != nil {
-		t.Fatalf("NewApp: %v", err)
-	}
-	app.Printer.Writer = &bytes.Buffer{}
-
-	err = (&ApiCmd{
-		Method: "patch",
-		Path:   "conversations/123/custom_attributes",
-		Data:   `{"priority":"urgent"}`,
-	}).Run(app)
-	if err == nil {
-		t.Fatal("expected writes disabled error")
-	}
-	if !strings.Contains(err.Error(), "chatwoot config writes on") {
-		t.Fatalf("error %q should mention how to enable writes", err.Error())
-	}
-	if called {
-		t.Fatal("mutating raw API request should not reach the network when writes are disabled")
 	}
 }
 

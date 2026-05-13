@@ -12,12 +12,11 @@ import (
 )
 
 type Client struct {
-	BaseURL       string
-	APIKey        string
-	AccountID     int
-	Verbose       bool
-	WritesEnabled bool
-	httpClient    *http.Client
+	BaseURL    string
+	APIKey     string
+	AccountID  int
+	Verbose    bool
+	httpClient *http.Client
 }
 
 type RawResponse struct {
@@ -38,12 +37,6 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 func WithVerbose(verbose bool) ClientOption {
 	return func(c *Client) {
 		c.Verbose = verbose
-	}
-}
-
-func WithWritesEnabled(enabled bool) ClientOption {
-	return func(c *Client) {
-		c.WritesEnabled = enabled
 	}
 }
 
@@ -93,10 +86,6 @@ func (c *Client) rawRequest(method, path string, body io.Reader) (*http.Request,
 }
 
 func (c *Client) do(req *http.Request, v interface{}) error {
-	if err := c.requireWritesEnabled(req.Method); err != nil {
-		return err
-	}
-
 	if c.Verbose {
 		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL.String())
 	}
@@ -140,10 +129,6 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 }
 
 func (c *Client) doRaw(req *http.Request) (*RawResponse, error) {
-	if err := c.requireWritesEnabled(req.Method); err != nil {
-		return nil, err
-	}
-
 	if c.Verbose {
 		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL.String())
 	}
@@ -173,17 +158,6 @@ func (c *Client) doRaw(req *http.Request) (*RawResponse, error) {
 		Header:     resp.Header.Clone(),
 		Body:       body,
 	}, nil
-}
-
-func (c *Client) requireWritesEnabled(method string) error {
-	switch strings.ToUpper(method) {
-	case http.MethodGet, http.MethodHead, http.MethodOptions:
-		return nil
-	}
-	if c.WritesEnabled {
-		return nil
-	}
-	return fmt.Errorf("writes are disabled. Run 'chatwoot config writes on' to enable write commands")
 }
 
 func redactSensitiveJSON(body []byte) string {

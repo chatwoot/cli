@@ -49,7 +49,7 @@ func TestAssignMeWithAccountOverrideDoesNotPersistOverride(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1, WritesEnabled: true}); err != nil {
+	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
 		t.Fatalf("config.Save: %v", err)
 	}
 
@@ -185,7 +185,7 @@ func TestConvStatusVerbsCallToggleStatus(t *testing.T) {
 			}))
 			defer server.Close()
 
-			if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1, WritesEnabled: true}); err != nil {
+			if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
 				t.Fatalf("config.Save: %v", err)
 			}
 			app, err := NewApp(&CLI{Output: "text"}, false, "test")
@@ -221,7 +221,7 @@ func TestConvUnassignPostsZeroAssignee(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1, WritesEnabled: true}); err != nil {
+	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
 		t.Fatalf("config.Save: %v", err)
 	}
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")

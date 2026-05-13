@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -72,41 +71,6 @@ func TestVerboseResponseLoggingDoesNotLeakNestedSensitiveTokens(t *testing.T) {
 	})
 
 	assertDoesNotContainSensitiveValues(t, stderr, accessSecret, pubsubSecret)
-}
-
-func TestWritesDisabledBlocksMutatingRequestsBeforeNetwork(t *testing.T) {
-	called := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		called = true
-		w.WriteHeader(http.StatusOK)
-	}))
-	t.Cleanup(server.Close)
-
-	client := NewClient(server.URL, "api-key", 1, WithHTTPClient(server.Client()))
-
-	err := client.Post("/conversations/123/toggle_status", strings.NewReader(`{"status":"open"}`), nil)
-	if err == nil {
-		t.Fatal("expected writes disabled error")
-	}
-	if !strings.Contains(err.Error(), "chatwoot config writes on") {
-		t.Fatalf("error %q should mention how to enable writes", err.Error())
-	}
-	if called {
-		t.Fatal("mutating request should not reach the network when writes are disabled")
-	}
-}
-
-func TestWritesEnabledAllowsMutatingRequests(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprint(w, `{}`)
-	}))
-	t.Cleanup(server.Close)
-
-	client := NewClient(server.URL, "api-key", 1, WithHTTPClient(server.Client()), WithWritesEnabled(true))
-
-	if err := client.Post("/conversations/123/toggle_status", strings.NewReader(`{"status":"open"}`), nil); err != nil {
-		t.Fatalf("Post returned error: %v", err)
-	}
 }
 
 func captureStderr(t *testing.T, fn func()) string {

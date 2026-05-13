@@ -392,7 +392,7 @@ func newContractClient(t *testing.T, handler func(*testing.T, *http.Request, *op
 	}))
 	t.Cleanup(server.Close)
 
-	return NewClient(server.URL, contractAPIKey, 1, WithHTTPClient(server.Client()), WithWritesEnabled(true))
+	return NewClient(server.URL, contractAPIKey, 1, WithHTTPClient(server.Client()))
 }
 
 func validateContractRequest(t *testing.T, r *http.Request) *openapi3filter.RequestValidationInput {
