@@ -57,6 +57,9 @@ chatwoot contact 456 conversations
 
 chatwoot inboxes / agents / labels / teams     # List
 chatwoot me                                    # Your profile
+
+chatwoot api /conversations/123                # Expands to /api/v1/accounts/<id>/conversations/123
+chatwoot api -X PATCH /conversations/123 --data '{"status":"open"}'
 ```
 
 Run `chatwoot --help` or see the [full command reference](https://developers.chatwoot.com/cli/commands).

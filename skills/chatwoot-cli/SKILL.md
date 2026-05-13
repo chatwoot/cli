@@ -37,6 +37,10 @@ explicitly.
 - `chatwoot auth login` is interactive (prompts for base URL, API key,
   account ID). If invoked headlessly it will fail — surface the env-var path
   instead.
+- Prefer first-class commands over `chatwoot api`. Use raw API calls only when
+  no command exists or the user explicitly asks for an endpoint-level call.
+- Before raw API calls, check the application Swagger:
+  https://raw.githubusercontent.com/chatwoot/chatwoot/develop/swagger/tag_groups/application_swagger.json
 - Use `-v` (verbose) to see the underlying HTTP request/response when
   debugging an unexpected result.
 
@@ -95,6 +99,7 @@ chatwoot convs --help         # filters for the list command
 | `inboxes` / `inbox <id>`         | List inboxes / view one                           |
 | `agents` / `labels` / `teams`    | List account-level resources                      |
 | `me` / `whoami` / `auth status`  | Show current identity                             |
+| `api <path>`                      | Call an arbitrary Chatwoot API endpoint with saved auth headers |
 | `auth login` / `logout`          | Interactive login / remove credentials            |
 | `config path` / `config view`    | Inspect config file location and contents         |
 | `completion <shell>`             | Print shell-completion script                     |
@@ -116,9 +121,10 @@ chatwoot convs --help         # filters for the list command
 ## Safety — customer-visible writes
 
 Some commands change shared state or send messages a customer or teammate
-will see. Before running any of them in an agent context, **show the user
-the exact command and get explicit approval.** Don't assume approval on one
-conversation extends to another.
+will see. Treat all write operations as privileged actions. Before running any
+of them in an agent context, **show the user the exact command and get explicit
+approval. Never perform writes without user confirmation.** Don't assume
+approval on one conversation extends to another.
 
 Customer- or team-visible (effectively irreversible):
 - `reply` (without `--private`) — the message is sent and cannot be unsent.
@@ -128,13 +134,17 @@ Customer- or team-visible (effectively irreversible):
   close out SLA tracking.
 - `label` — overwrites the existing label set (see mistake #3).
 - `priority` — visible in dashboards, used for SLA routing.
+- `api -X <method> ...` or `api --data ...` — arbitrary endpoint calls can
+  mutate any supported resource. Treat non-GET requests as writes unless the
+  endpoint contract proves otherwise. Show the exact method, path, and body
+  before running a mutating raw API call.
 - Any bulk operation composed with `-q | xargs` — pause, list what would be
   affected, then confirm.
 
 Read-only and safe to run freely:
 `convs`, `conv <id>` (view), `conv <id> messages`, `conv <id> contact`, `contacts`, `contact <id>`,
 `inboxes`, `inbox <id>`, `agents`, `labels`, `teams`, `me`, `whoami`,
-`auth status`, `config path`, `config view`.
+`auth status`, `config path`, `config view`, `api <path>` when it is a GET.
 
 ## Common Patterns
 
@@ -172,3 +182,12 @@ chatwoot convs -l spam -q | xargs -I{} chatwoot conv {} resolve
 id=$(chatwoot contacts --search "jane@example.com" -o json | jq '.payload[0].id')
 chatwoot contact "$id" conversations -o json
 ```
+
+**Raw API call** — account-relative paths are expanded under `/api/v1/accounts/<account_id>`, so do not include the `/api/v1/accounts/...` prefix:
+```bash
+chatwoot api /conversations/123 -o json
+chatwoot api -X PATCH /conversations/123 --data '{"status":"open"}'
+```
+
+Use the application Swagger as the endpoint reference before raw API calls:
+https://raw.githubusercontent.com/chatwoot/chatwoot/develop/swagger/tag_groups/application_swagger.json

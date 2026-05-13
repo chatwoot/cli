@@ -236,4 +236,3 @@ func TestConvUnassignPostsZeroAssignee(t *testing.T) {
 		t.Errorf("posted assignee_id = %v, want 0 (Chatwoot's unassign sentinel)", got.AssigneeID)
 	}
 }
-
