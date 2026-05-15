@@ -45,6 +45,7 @@ func TestVerboseResponseLoggingDoesNotLeakNestedSensitiveTokens(t *testing.T) {
 	const (
 		accessSecret = "nested-access-secret"
 		pubsubSecret = "nested-pubsub-secret"
+		hmacSecret   = "nested-hmac-secret"
 	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -54,7 +55,8 @@ func TestVerboseResponseLoggingDoesNotLeakNestedSensitiveTokens(t *testing.T) {
 				"user": {
 					"id": 7,
 					"access_token": "`+accessSecret+`",
-					"pubsub_token": "`+pubsubSecret+`"
+					"pubsub_token": "`+pubsubSecret+`",
+					"hmac_identifier": "`+hmacSecret+`"
 				}
 			}
 		}`)
@@ -70,7 +72,86 @@ func TestVerboseResponseLoggingDoesNotLeakNestedSensitiveTokens(t *testing.T) {
 		}
 	})
 
-	assertDoesNotContainSensitiveValues(t, stderr, accessSecret, pubsubSecret)
+	assertDoesNotContainSensitiveValues(t, stderr, accessSecret, pubsubSecret, hmacSecret)
+}
+
+func TestVerboseResponseLoggingRedactsSecretLikeFields(t *testing.T) {
+	const (
+		tokenSecret = "generic-token-secret"
+		apiSecret   = "generic-api-secret"
+		signingKey  = "generic-signing-key"
+		hmacValue   = "generic-hmac-value"
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{
+			"payload": {
+				"session_token": "`+tokenSecret+`",
+				"webhook_secret": "`+apiSecret+`",
+				"signing_key": "`+signingKey+`",
+				"hmac_digest": "`+hmacValue+`"
+			}
+		}`)
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewClient(server.URL, "api-key", 1, WithHTTPClient(server.Client()), WithVerbose(true))
+
+	var decoded map[string]any
+	stderr := captureStderr(t, func() {
+		if err := client.Get("/secrets", nil, &decoded); err != nil {
+			t.Fatalf("Get returned error: %v", err)
+		}
+	})
+
+	assertDoesNotContainSensitiveValues(t, stderr, tokenSecret, apiSecret, signingKey, hmacValue)
+}
+
+func TestVerboseNonJSONResponseLoggingStripsTerminalControls(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = io.WriteString(w, "hello\x1b]52;c;Zm9v\aworld\x1b[31m")
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewClient(server.URL, "api-key", 1, WithHTTPClient(server.Client()), WithVerbose(true))
+
+	var decoded map[string]any
+	stderr := captureStderr(t, func() {
+		if err := client.Get("/plain", nil, &decoded); err == nil {
+			t.Fatal("expected JSON decode error")
+		}
+	})
+
+	assertDoesNotContainSensitiveValues(t, stderr, "\x1b", "\a", "]52", "[31m")
+	if !strings.Contains(stderr, "helloworld") {
+		t.Fatalf("verbose output stripped printable content:\n%s", stderr)
+	}
+}
+
+func TestAPIErrorBodyStripsTerminalControls(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "bad\x1b]52;c;Zm9v\aerror", http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewClient(server.URL, "api-key", 1, WithHTTPClient(server.Client()))
+
+	var decoded map[string]any
+	err := client.Get("/boom", nil, &decoded)
+	if err == nil {
+		t.Fatal("expected API error")
+	}
+	got := err.Error()
+	for _, disallowed := range []string{"\x1b", "\a", "]52"} {
+		if strings.Contains(got, disallowed) {
+			t.Fatalf("API error contained terminal control %q: %q", disallowed, got)
+		}
+	}
+	if !strings.Contains(got, "baderror") {
+		t.Fatalf("API error stripped printable content: %q", got)
+	}
 }
 
 func captureStderr(t *testing.T, fn func()) string {
