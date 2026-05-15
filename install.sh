@@ -130,27 +130,27 @@ fi
 # ---------------------------------------------------------------------------
 # Verify checksum (sha256)
 # ---------------------------------------------------------------------------
-if curl -fsSL "$checksum_url" -o "$tmp/checksums.txt" 2>/dev/null; then
-  expected=$(grep " ${asset}\$" "$tmp/checksums.txt" | awk '{print $1}')
-  if [ -n "$expected" ]; then
-    if has sha256sum; then
-      actual=$(sha256sum "$tmp/$asset" | awk '{print $1}')
-    elif has shasum; then
-      actual=$(shasum -a 256 "$tmp/$asset" | awk '{print $1}')
-    else
-      warn "no sha256 tool found — skipping checksum verification"
-      actual=""
-    fi
-    if [ -n "$actual" ] && [ "$expected" != "$actual" ]; then
-      err "checksum mismatch (expected=${expected} got=${actual})"
-    fi
-    [ -n "$actual" ] && step "Verified checksum"
-  else
-    warn "${asset} not listed in checksums.txt — skipping verification"
-  fi
-else
-  warn "could not fetch checksums.txt — skipping verification"
+if ! curl -fsSL "$checksum_url" -o "$tmp/checksums.txt" 2>/dev/null; then
+  err "failed to download checksums.txt; refusing to install without checksum verification"
 fi
+
+expected=$(grep " ${asset}\$" "$tmp/checksums.txt" | awk '{print $1}')
+if [ -z "$expected" ]; then
+  err "${asset} not listed in checksums.txt; refusing to install without checksum verification"
+fi
+
+if has sha256sum; then
+  actual=$(sha256sum "$tmp/$asset" | awk '{print $1}')
+elif has shasum; then
+  actual=$(shasum -a 256 "$tmp/$asset" | awk '{print $1}')
+else
+  err "no sha256 tool found; install sha256sum or shasum and retry"
+fi
+
+if [ "$expected" != "$actual" ]; then
+  err "checksum mismatch (expected=${expected} got=${actual})"
+fi
+step "Verified checksum"
 
 # ---------------------------------------------------------------------------
 # Extract and install

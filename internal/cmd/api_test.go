@@ -123,6 +123,22 @@ func TestApiCmdSendsMethodBodyAndHeaders(t *testing.T) {
 	}
 }
 
+func TestPrintAPIResponseSanitizesNonJSONBody(t *testing.T) {
+	var out bytes.Buffer
+
+	printAPIResponse(&out, []byte("hello\x1b]52;c;Zm9v\aworld\x1b[31m"))
+
+	got := out.String()
+	for _, disallowed := range []string{"\x1b", "\a", "]52", "[31m"} {
+		if strings.Contains(got, disallowed) {
+			t.Fatalf("non-JSON API response contained terminal control %q: %q", disallowed, got)
+		}
+	}
+	if !strings.Contains(got, "helloworld") {
+		t.Fatalf("non-JSON API response stripped printable content: %q", got)
+	}
+}
+
 func TestNormalizeAPIPathRejectsAbsoluteURLs(t *testing.T) {
 	if _, _, err := normalizeAPIPath("https://example.com/api/v1/profile", false); err == nil {
 		t.Fatal("expected absolute URL error")

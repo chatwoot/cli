@@ -74,8 +74,12 @@ func (c *AuthLoginCmd) Run(app *App) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("Logged in as %s (%s)\n", profile.Name, profile.Email)
+	fmt.Print(loginSuccessMessage(profile.Name, profile.Email))
 	return nil
+}
+
+func loginSuccessMessage(name, email string) string {
+	return fmt.Sprintf("Logged in as %s (%s)\n", output.SanitizeText(name), output.SanitizeText(email))
 }
 
 func readAPIKey(reader *bufio.Reader) (string, error) {
@@ -111,10 +115,8 @@ func (c *AuthLogoutCmd) Run(app *App) error {
 		return err
 	}
 
-	if cfg != nil {
-		if err := config.DeleteAPIKey(cfg); err != nil {
-			return err
-		}
+	if err := config.DeleteAPIKey(cfg); err != nil {
+		return err
 	}
 
 	if err := os.Remove(path); err != nil {

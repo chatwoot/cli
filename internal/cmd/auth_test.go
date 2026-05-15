@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -112,6 +113,18 @@ func TestAuthStatusReportsIdentityAndCredentialSource(t *testing.T) {
 	}
 }
 
+func TestLoginSuccessMessageStripsTerminalControls(t *testing.T) {
+	got := loginSuccessMessage("Eve\x1b]52;c;Zm9v\a", "eve@example.com\x1b[31m")
+	for _, disallowed := range []string{"\x1b", "\a", "]52", "[31m"} {
+		if strings.Contains(got, disallowed) {
+			t.Fatalf("login success message contained terminal control %q: %q", disallowed, got)
+		}
+	}
+	if !strings.Contains(got, "Logged in as Eve (eve@example.com)") {
+		t.Fatalf("login success message stripped printable content: %q", got)
+	}
+}
+
 func TestMeAndWhoamiAliasAuthStatus(t *testing.T) {
 	profile := `{
 		"id": 7,
@@ -149,6 +162,27 @@ func TestAuthStatusNotLoggedIn(t *testing.T) {
 	}
 	if !strings.Contains(got, "chatwoot auth login") {
 		t.Fatalf("expected the message to point at 'chatwoot auth login', got: %s", got)
+	}
+}
+
+func TestAuthLogoutRemovesKeyringTokenWithoutConfig(t *testing.T) {
+	keyring.MockInit()
+	if err := keyring.DeleteAll("chatwoot-cli"); err != nil {
+		t.Fatalf("keyring.DeleteAll: %v", err)
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(config.APIKeyEnv, "")
+
+	if err := keyring.Set("chatwoot-cli", "api-key", "stale-token"); err != nil {
+		t.Fatalf("keyring.Set: %v", err)
+	}
+
+	if err := (&AuthLogoutCmd{}).Run(&App{}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if _, err := keyring.Get("chatwoot-cli", "api-key"); !errors.Is(err, keyring.ErrNotFound) {
+		t.Fatalf("expected logout to delete stale keyring token, err = %v", err)
 	}
 }
 

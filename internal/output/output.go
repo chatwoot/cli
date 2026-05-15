@@ -39,7 +39,7 @@ func (p *Printer) PrintTable(headers []string, rows [][]string) {
 	if p.Quiet {
 		for _, row := range rows {
 			if len(row) > 0 {
-				_, _ = fmt.Fprintln(p.Writer, sanitizeText(row[0]))
+				_, _ = fmt.Fprintln(p.Writer, SanitizeText(row[0]))
 			}
 		}
 		return
@@ -83,7 +83,7 @@ func (p *Printer) PrintDetail(pairs []KeyValue) {
 	}
 
 	for _, kv := range pairs {
-		_, _ = fmt.Fprintf(p.Writer, "%-*s  %s\n", maxKey, kv.Key+":", sanitizeText(kv.Value))
+		_, _ = fmt.Fprintf(p.Writer, "%-*s  %s\n", maxKey, kv.Key+":", SanitizeText(kv.Value))
 	}
 }
 
@@ -127,12 +127,14 @@ func (p *Printer) tableAsCSV(headers []string, rows [][]string) {
 func sanitizeTextRow(row []string) []string {
 	out := make([]string, len(row))
 	for i, cell := range row {
-		out[i] = sanitizeText(cell)
+		out[i] = SanitizeText(cell)
 	}
 	return out
 }
 
-func sanitizeText(s string) string {
+// SanitizeText removes terminal control sequences and other non-printable
+// control characters from text before it is written to a terminal.
+func SanitizeText(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
 

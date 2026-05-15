@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/chatwoot/cli/internal/output"
 )
 
 type Client struct {
@@ -102,7 +104,7 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("API error %d: %s", resp.StatusCode, output.SanitizeText(string(body)))
 	}
 
 	if v == nil {
@@ -149,7 +151,7 @@ func (c *Client) doRaw(req *http.Request) (*RawResponse, error) {
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, output.SanitizeText(string(body)))
 	}
 
 	return &RawResponse{
@@ -163,14 +165,14 @@ func (c *Client) doRaw(req *http.Request) (*RawResponse, error) {
 func redactSensitiveJSON(body []byte) string {
 	var value interface{}
 	if err := json.Unmarshal(body, &value); err != nil {
-		return string(body)
+		return output.SanitizeText(string(body))
 	}
 
 	redactSensitiveFields(value)
 
 	redacted, err := json.Marshal(value)
 	if err != nil {
-		return string(body)
+		return output.SanitizeText(string(body))
 	}
 	return string(redacted)
 }
@@ -193,12 +195,16 @@ func redactSensitiveFields(value interface{}) {
 }
 
 func isSensitiveField(key string) bool {
-	switch strings.ToLower(key) {
-	case "access_token", "api_access_token", "pubsub_token":
+	key = strings.ToLower(key)
+	switch key {
+	case "access_token", "api_access_token", "pubsub_token", "hmac_identifier":
 		return true
-	default:
-		return false
 	}
+	return strings.HasSuffix(key, "_token") ||
+		strings.HasSuffix(key, "_secret") ||
+		strings.HasSuffix(key, "_key") ||
+		strings.HasPrefix(key, "hmac_") ||
+		strings.Contains(key, "_hmac_")
 }
 
 func (c *Client) Get(path string, params url.Values, v interface{}) error {

@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/chatwoot/cli/internal/output"
 )
 
 type ApiCmd struct {
@@ -131,8 +133,9 @@ func printAPIResponse(w io.Writer, body []byte) {
 		return
 	}
 
-	_, _ = w.Write(body)
-	if body[len(body)-1] != '\n' {
+	safeBody := output.SanitizeText(string(body))
+	_, _ = io.WriteString(w, safeBody)
+	if !strings.HasSuffix(safeBody, "\n") {
 		_, _ = fmt.Fprintln(w)
 	}
 }
