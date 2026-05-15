@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	APIKeyEnv      = "CHATWOOT_API_KEY"
-	keyringService = "chatwoot-cli"
+	APIKeyEnv          = "CHATWOOT_API_KEY"
+	keyringService     = "chatwoot-cli"
+	apiKeyKeyringEntry = "api-key"
 )
 
 type CredentialSource string
@@ -37,14 +38,29 @@ func ResolveAPIKey(cfg *Config) (string, CredentialSource, error) {
 		return "", CredentialSourceMissing, missingAPIKeyError()
 	}
 
-	apiKey, err := keyring.Get(keyringService, credentialKey(cfg))
+	apiKey, err := keyring.Get(keyringService, apiKeyKeyringEntry)
 	if err == nil {
 		return apiKey, CredentialSourceKeyring, nil
 	}
-	if errors.Is(err, keyring.ErrNotFound) {
-		return "", CredentialSourceMissing, missingAPIKeyError()
+	if !errors.Is(err, keyring.ErrNotFound) {
+		return "", CredentialSourceMissing, fmt.Errorf("failed to read API key from keyring: %w", err)
 	}
-	return "", CredentialSourceMissing, fmt.Errorf("failed to read API key from keyring: %w", err)
+
+	// TODO(v1): remove this legacy key migration after users have had a release
+	// cycle to move from URL/account-scoped keyring entries to api-key.
+	apiKey, err = keyring.Get(keyringService, legacyCredentialKey(cfg))
+	if err == nil {
+		if err := keyring.Set(keyringService, apiKeyKeyringEntry, apiKey); err != nil {
+			return "", CredentialSourceMissing, fmt.Errorf("failed to migrate API key in keyring: %w", err)
+		}
+		_ = keyring.Delete(keyringService, legacyCredentialKey(cfg))
+		return apiKey, CredentialSourceKeyring, nil
+	}
+	if !errors.Is(err, keyring.ErrNotFound) {
+		return "", CredentialSourceMissing, fmt.Errorf("failed to read legacy API key from keyring: %w", err)
+	}
+
+	return "", CredentialSourceMissing, missingAPIKeyError()
 }
 
 func SaveAPIKey(cfg *Config, apiKey string) error {
@@ -55,30 +71,27 @@ func SaveAPIKey(cfg *Config, apiKey string) error {
 	if cfg == nil || !cfg.IsValid() {
 		return fmt.Errorf("valid config is required to save API key")
 	}
-	if err := keyring.Set(keyringService, credentialKey(cfg), apiKey); err != nil {
+	if err := keyring.Set(keyringService, apiKeyKeyringEntry, apiKey); err != nil {
 		return fmt.Errorf("failed to save API key to keyring: %w", err)
 	}
 	return nil
 }
 
-func DeleteAPIKey(cfg *Config) error {
-	if cfg == nil || !cfg.IsValid() {
+// DeleteAPIKey removes every credential saved by this CLI service. This avoids
+// leaving stale keyring entries behind when config.yaml was edited or removed.
+func DeleteAPIKey(_ *Config) error {
+	err := keyring.DeleteAll(keyringService)
+	if err == nil || errors.Is(err, keyring.ErrNotFound) {
 		return nil
 	}
-	if err := keyring.Delete(keyringService, credentialKey(cfg)); err != nil {
-		if errors.Is(err, keyring.ErrNotFound) {
-			return nil
-		}
-		return fmt.Errorf("failed to delete API key from keyring: %w", err)
-	}
-	return nil
+	return fmt.Errorf("failed to delete API keys from keyring: %w", err)
 }
 
 func missingAPIKeyError() error {
 	return fmt.Errorf("%w; run 'chatwoot auth login' or set %s", ErrAPIKeyNotFound, APIKeyEnv)
 }
 
-func credentialKey(cfg *Config) string {
+func legacyCredentialKey(cfg *Config) string {
 	return fmt.Sprintf("%s/accounts/%d", normalizeBaseURL(cfg.BaseURL), cfg.AccountID)
 }
 

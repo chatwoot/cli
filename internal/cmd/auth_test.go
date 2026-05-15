@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -149,6 +150,27 @@ func TestAuthStatusNotLoggedIn(t *testing.T) {
 	}
 	if !strings.Contains(got, "chatwoot auth login") {
 		t.Fatalf("expected the message to point at 'chatwoot auth login', got: %s", got)
+	}
+}
+
+func TestAuthLogoutRemovesKeyringTokenWithoutConfig(t *testing.T) {
+	keyring.MockInit()
+	if err := keyring.DeleteAll("chatwoot-cli"); err != nil {
+		t.Fatalf("keyring.DeleteAll: %v", err)
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(config.APIKeyEnv, "")
+
+	if err := keyring.Set("chatwoot-cli", "api-key", "stale-token"); err != nil {
+		t.Fatalf("keyring.Set: %v", err)
+	}
+
+	if err := (&AuthLogoutCmd{}).Run(&App{}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if _, err := keyring.Get("chatwoot-cli", "api-key"); !errors.Is(err, keyring.ErrNotFound) {
+		t.Fatalf("expected logout to delete stale keyring token, err = %v", err)
 	}
 }
 

@@ -57,6 +57,37 @@ func TestResolveAPIKeyFromKeyring(t *testing.T) {
 	}
 }
 
+func TestResolveAPIKeyMigratesLegacyKeyringToken(t *testing.T) {
+	initMockKeyring(t)
+	cfg := &Config{BaseURL: "https://app.chatwoot.com/", AccountID: 127}
+
+	if err := keyring.Set(keyringService, legacyCredentialKey(cfg), "legacy-token"); err != nil {
+		t.Fatalf("keyring.Set() error = %v", err)
+	}
+
+	apiKey, source, err := ResolveAPIKey(&Config{BaseURL: "https://app.chatwoot.com", AccountID: 127})
+	if err != nil {
+		t.Fatalf("ResolveAPIKey() error = %v", err)
+	}
+	if apiKey != "legacy-token" {
+		t.Fatalf("apiKey = %q, want legacy-token", apiKey)
+	}
+	if source != CredentialSourceKeyring {
+		t.Fatalf("source = %q, want %q", source, CredentialSourceKeyring)
+	}
+
+	stable, err := keyring.Get(keyringService, apiKeyKeyringEntry)
+	if err != nil {
+		t.Fatalf("stable keyring token missing after migration: %v", err)
+	}
+	if stable != "legacy-token" {
+		t.Fatalf("stable token = %q, want legacy-token", stable)
+	}
+	if _, err := keyring.Get(keyringService, legacyCredentialKey(cfg)); !errors.Is(err, keyring.ErrNotFound) {
+		t.Fatalf("legacy token still present after migration, err = %v", err)
+	}
+}
+
 func TestResolveAPIKeyMissing(t *testing.T) {
 	initMockKeyring(t)
 	cfg := &Config{BaseURL: "https://app.chatwoot.com", AccountID: 125}
@@ -84,5 +115,30 @@ func TestDeleteAPIKeyRemovesKeyringToken(t *testing.T) {
 	_, _, err := ResolveAPIKey(cfg)
 	if !errors.Is(err, ErrAPIKeyNotFound) {
 		t.Fatalf("ResolveAPIKey() error = %v, want ErrAPIKeyNotFound", err)
+	}
+}
+
+func TestDeleteAPIKeyRemovesAllServiceEntries(t *testing.T) {
+	initMockKeyring(t)
+	cfg := &Config{BaseURL: "https://app.chatwoot.com", AccountID: 128}
+
+	if err := keyring.Set(keyringService, apiKeyKeyringEntry, "stable-token"); err != nil {
+		t.Fatalf("keyring.Set(stable) error = %v", err)
+	}
+	if err := keyring.Set(keyringService, "stale-entry", "stale-token"); err != nil {
+		t.Fatalf("keyring.Set(stale) error = %v", err)
+	}
+
+	if err := DeleteAPIKey(cfg); err != nil {
+		t.Fatalf("DeleteAPIKey() error = %v", err)
+	}
+
+	for name, key := range map[string]string{
+		"stable": apiKeyKeyringEntry,
+		"stale":  "stale-entry",
+	} {
+		if _, err := keyring.Get(keyringService, key); !errors.Is(err, keyring.ErrNotFound) {
+			t.Fatalf("%s token still present after DeleteAPIKey, err = %v", name, err)
+		}
 	}
 }

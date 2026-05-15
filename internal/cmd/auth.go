@@ -111,10 +111,8 @@ func (c *AuthLogoutCmd) Run(app *App) error {
 		return err
 	}
 
-	if cfg != nil {
-		if err := config.DeleteAPIKey(cfg); err != nil {
-			return err
-		}
+	if err := config.DeleteAPIKey(cfg); err != nil {
+		return err
 	}
 
 	if err := os.Remove(path); err != nil {
