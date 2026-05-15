@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -55,6 +56,52 @@ func TestResolveAPIKeyFromKeyring(t *testing.T) {
 	if source != CredentialSourceKeyring {
 		t.Fatalf("source = %q, want %q", source, CredentialSourceKeyring)
 	}
+
+	stored, err := keyring.Get(keyringService, apiKeyKeyringEntry)
+	if err != nil {
+		t.Fatalf("keyring.Get() error = %v", err)
+	}
+	var credential savedCredential
+	if err := json.Unmarshal([]byte(stored), &credential); err != nil {
+		t.Fatalf("stored credential is not JSON: %v", err)
+	}
+	if credential.BaseURL != "https://app.chatwoot.com" || credential.AccountID != 124 || credential.APIKey != "keyring-token" {
+		t.Fatalf("stored credential = %#v, want scoped api key", credential)
+	}
+}
+
+func TestResolveAPIKeyRejectsMismatchedStableCredential(t *testing.T) {
+	initMockKeyring(t)
+	cfg := &Config{BaseURL: "https://app.chatwoot.com", AccountID: 124}
+
+	if err := SaveAPIKey(cfg, "keyring-token"); err != nil {
+		t.Fatalf("SaveAPIKey() error = %v", err)
+	}
+
+	_, source, err := ResolveAPIKey(&Config{BaseURL: "https://evil.example", AccountID: 124})
+	if !errors.Is(err, ErrAPIKeyNotFound) {
+		t.Fatalf("ResolveAPIKey() error = %v, want ErrAPIKeyNotFound", err)
+	}
+	if source != CredentialSourceMissing {
+		t.Fatalf("source = %q, want %q", source, CredentialSourceMissing)
+	}
+}
+
+func TestResolveAPIKeyRejectsRawStableCredential(t *testing.T) {
+	initMockKeyring(t)
+	cfg := &Config{BaseURL: "https://app.chatwoot.com", AccountID: 124}
+
+	if err := keyring.Set(keyringService, apiKeyKeyringEntry, "raw-token"); err != nil {
+		t.Fatalf("keyring.Set() error = %v", err)
+	}
+
+	_, source, err := ResolveAPIKey(cfg)
+	if !errors.Is(err, ErrAPIKeyNotFound) {
+		t.Fatalf("ResolveAPIKey() error = %v, want ErrAPIKeyNotFound", err)
+	}
+	if source != CredentialSourceMissing {
+		t.Fatalf("source = %q, want %q", source, CredentialSourceMissing)
+	}
 }
 
 func TestResolveAPIKeyMigratesLegacyKeyringToken(t *testing.T) {
@@ -80,8 +127,12 @@ func TestResolveAPIKeyMigratesLegacyKeyringToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stable keyring token missing after migration: %v", err)
 	}
-	if stable != "legacy-token" {
-		t.Fatalf("stable token = %q, want legacy-token", stable)
+	var credential savedCredential
+	if err := json.Unmarshal([]byte(stable), &credential); err != nil {
+		t.Fatalf("stable keyring token is not JSON after migration: %v", err)
+	}
+	if credential.BaseURL != "https://app.chatwoot.com" || credential.AccountID != 127 || credential.APIKey != "legacy-token" {
+		t.Fatalf("stable credential = %#v, want migrated scoped credential", credential)
 	}
 	if _, err := keyring.Get(keyringService, legacyCredentialKey(cfg)); !errors.Is(err, keyring.ErrNotFound) {
 		t.Fatalf("legacy token still present after migration, err = %v", err)

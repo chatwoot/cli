@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -25,6 +26,12 @@ const (
 
 var ErrAPIKeyNotFound = errors.New("api key not found")
 
+type savedCredential struct {
+	BaseURL   string `json:"base_url"`
+	AccountID int    `json:"account_id"`
+	APIKey    string `json:"api_key"`
+}
+
 // ResolveAPIKey implements the auth flow for the CLI. YAML config intentionally
 // stores only non-secrets, and plaintext api_key values from older configs are
 // ignored. CHATWOOT_API_KEY wins for CI, coding agents, and temporary overrides;
@@ -38,8 +45,12 @@ func ResolveAPIKey(cfg *Config) (string, CredentialSource, error) {
 		return "", CredentialSourceMissing, missingAPIKeyError()
 	}
 
-	apiKey, err := keyring.Get(keyringService, apiKeyKeyringEntry)
+	stored, err := keyring.Get(keyringService, apiKeyKeyringEntry)
 	if err == nil {
+		apiKey, err := parseSavedCredential(stored, cfg)
+		if err != nil {
+			return "", CredentialSourceMissing, err
+		}
 		return apiKey, CredentialSourceKeyring, nil
 	}
 	if !errors.Is(err, keyring.ErrNotFound) {
@@ -48,9 +59,9 @@ func ResolveAPIKey(cfg *Config) (string, CredentialSource, error) {
 
 	// TODO(v1): remove this legacy key migration after users have had a release
 	// cycle to move from URL/account-scoped keyring entries to api-key.
-	apiKey, err = keyring.Get(keyringService, legacyCredentialKey(cfg))
+	apiKey, err := keyring.Get(keyringService, legacyCredentialKey(cfg))
 	if err == nil {
-		if err := keyring.Set(keyringService, apiKeyKeyringEntry, apiKey); err != nil {
+		if err := saveAPIKeyToKeyring(cfg, apiKey); err != nil {
 			return "", CredentialSourceMissing, fmt.Errorf("failed to migrate API key in keyring: %w", err)
 		}
 		_ = keyring.Delete(keyringService, legacyCredentialKey(cfg))
@@ -71,10 +82,37 @@ func SaveAPIKey(cfg *Config, apiKey string) error {
 	if cfg == nil || !cfg.IsValid() {
 		return fmt.Errorf("valid config is required to save API key")
 	}
-	if err := keyring.Set(keyringService, apiKeyKeyringEntry, apiKey); err != nil {
+	if err := saveAPIKeyToKeyring(cfg, apiKey); err != nil {
 		return fmt.Errorf("failed to save API key to keyring: %w", err)
 	}
 	return nil
+}
+
+func saveAPIKeyToKeyring(cfg *Config, apiKey string) error {
+	credential := savedCredential{
+		BaseURL:   normalizeBaseURL(cfg.BaseURL),
+		AccountID: cfg.AccountID,
+		APIKey:    apiKey,
+	}
+
+	data, err := json.Marshal(credential)
+	if err != nil {
+		return err
+	}
+	return keyring.Set(keyringService, apiKeyKeyringEntry, string(data))
+}
+
+func parseSavedCredential(stored string, cfg *Config) (string, error) {
+	var credential savedCredential
+	if err := json.Unmarshal([]byte(stored), &credential); err != nil {
+		return "", credentialScopeMismatchError()
+	}
+	if credential.APIKey == "" ||
+		credential.BaseURL != normalizeBaseURL(cfg.BaseURL) ||
+		credential.AccountID != cfg.AccountID {
+		return "", credentialScopeMismatchError()
+	}
+	return credential.APIKey, nil
 }
 
 // DeleteAPIKey removes every credential saved by this CLI service. This avoids
@@ -89,6 +127,10 @@ func DeleteAPIKey(_ *Config) error {
 
 func missingAPIKeyError() error {
 	return fmt.Errorf("%w; run 'chatwoot auth login' or set %s", ErrAPIKeyNotFound, APIKeyEnv)
+}
+
+func credentialScopeMismatchError() error {
+	return fmt.Errorf("%w; saved keyring credential does not match configured instance; run 'chatwoot auth login' for this base URL and account", ErrAPIKeyNotFound)
 }
 
 func legacyCredentialKey(cfg *Config) string {
