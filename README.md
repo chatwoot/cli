@@ -59,11 +59,11 @@ chatwoot inboxes / agents / labels / teams     # List
 chatwoot me                                    # Your profile
 
 chatwoot hcs                                   # List help centers
-chatwoot hc default chatwoot-support       # Save default help center and locale
-chatwoot hc articles --query "account"
-chatwoot hc articles --category getting-started
-chatwoot hc article create-a-agent-bot
-chatwoot hc articles --portal other-help-center --locale fr
+chatwoot hc default user-guide                 # Save default help center and locale
+chatwoot hc articles --query "api channel"
+chatwoot hc articles --category channels
+chatwoot hc article 1677839703-how-to-create-an-api-channel-inbox
+chatwoot hc articles --portal user-guide --locale en
 
 chatwoot api /conversations/123                # Expands to /api/v1/accounts/<id>/conversations/123
 chatwoot api -X PATCH /conversations/123 --data '{"status":"open"}'
