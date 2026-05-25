@@ -193,10 +193,10 @@ chatwoot contact "$id" conversations -o json
 **Help center lookup** — set a default portal once, then search/fetch articles:
 ```bash
 chatwoot hcs -o json
-chatwoot hc default pocket-casts-support
+chatwoot hc default chatwoot-help-center
 chatwoot hc articles --query "account" -o json
 chatwoot hc articles --category getting-started -o json
-chatwoot hc article create-a-pocket-casts-sync-account -o json
+chatwoot hc article create-a-chatwoot-account -o json
 ```
 
 **Raw API call** — account-relative paths are expanded under `/api/v1/accounts/<account_id>`, so do not include the `/api/v1/accounts/...` prefix:
