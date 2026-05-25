@@ -20,8 +20,8 @@ func TestHelpCenterListPortalsCallsAccountEndpoint(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"payload": [{
 				"id": 1,
-				"name": "Pocket Casts Support",
-				"slug": "pocket-casts-support",
+				"name": "Chatwoot User Guide",
+				"slug": "user-guide",
 				"config": {
 					"default_locale": "en",
 					"allowed_locales": [{"code": "en", "articles_count": 12, "categories_count": 3}]
@@ -38,19 +38,19 @@ func TestHelpCenterListPortalsCallsAccountEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListPortals returned error: %v", err)
 	}
-	if len(resp.Payload) != 1 || resp.Payload[0].Slug != "pocket-casts-support" {
+	if len(resp.Payload) != 1 || resp.Payload[0].Slug != "user-guide" {
 		t.Fatalf("unexpected portals response: %#v", resp)
 	}
 }
 
 func TestHelpCenterListArticlesBuildsPublicSearchURL(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/hc/pocket-casts-support/en/categories/getting-started/articles.json" {
+		if r.URL.Path != "/hc/user-guide/en/categories/channels/articles.json" {
 			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
 			return
 		}
-		if got := r.URL.Query().Get("query"); got != "sync account" {
-			t.Errorf("query = %q, want sync account", got)
+		if got := r.URL.Query().Get("query"); got != "api channel" {
+			t.Errorf("query = %q, want api channel", got)
 		}
 		if got := r.URL.Query().Get("page"); got != "2" {
 			t.Errorf("page = %q, want 2", got)
@@ -64,9 +64,9 @@ func TestHelpCenterListArticlesBuildsPublicSearchURL(t *testing.T) {
 			"payload": [{
 				"id": 123,
 				"category_id": 4,
-				"title": "Create a Pocket Casts Sync Account",
+				"title": "How to create an API channel inbox",
 				"content": "You can create an account from settings.",
-				"link": "hc/pocket-casts-support/articles/create-a-pocket-casts-sync-account"
+				"link": "hc/user-guide/articles/1677839703-how-to-create-an-api-channel-inbox"
 			}],
 			"meta": {"articles_count": 60}
 		}`))
@@ -75,10 +75,10 @@ func TestHelpCenterListArticlesBuildsPublicSearchURL(t *testing.T) {
 
 	client := NewClient(server.URL, "test-token", 9, WithHTTPClient(server.Client()))
 	resp, err := client.HelpCenter().ListArticles(HelpCenterArticlesOptions{
-		PortalSlug:   "pocket-casts-support",
+		PortalSlug:   "user-guide",
 		Locale:       "en",
-		CategorySlug: "getting-started",
-		Query:        "sync account",
+		CategorySlug: "channels",
+		Query:        "api channel",
 		Page:         2,
 		PerPage:      10,
 	})
@@ -88,14 +88,14 @@ func TestHelpCenterListArticlesBuildsPublicSearchURL(t *testing.T) {
 	if resp.Meta.ArticlesCount != 60 {
 		t.Fatalf("articles_count = %d, want 60", resp.Meta.ArticlesCount)
 	}
-	if len(resp.Payload) != 1 || resp.Payload[0].Title != "Create a Pocket Casts Sync Account" {
+	if len(resp.Payload) != 1 || resp.Payload[0].Title != "How to create an API channel inbox" {
 		t.Fatalf("unexpected articles response: %#v", resp)
 	}
 }
 
 func TestHelpCenterListArticlesOmitsDefaultPagination(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/hc/pocket-casts-support/en/articles.json" {
+		if r.URL.Path != "/hc/user-guide/en/articles.json" {
 			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
 			return
 		}
@@ -110,7 +110,7 @@ func TestHelpCenterListArticlesOmitsDefaultPagination(t *testing.T) {
 
 	client := NewClient(server.URL, "test-token", 9, WithHTTPClient(server.Client()))
 	if _, err := client.HelpCenter().ListArticles(HelpCenterArticlesOptions{
-		PortalSlug: "pocket-casts-support",
+		PortalSlug: "user-guide",
 		Locale:     "en",
 		Page:       1,
 	}); err != nil {
@@ -120,7 +120,7 @@ func TestHelpCenterListArticlesOmitsDefaultPagination(t *testing.T) {
 
 func TestHelpCenterGetArticleBuildsPublicArticleURL(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/hc/pocket-casts-support/articles/create-a-pocket-casts-sync-account.json" {
+		if r.URL.Path != "/hc/user-guide/articles/1677839703-how-to-create-an-api-channel-inbox.json" {
 			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
 			return
 		}
@@ -129,21 +129,21 @@ func TestHelpCenterGetArticleBuildsPublicArticleURL(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"id": 123,
 			"category_id": 4,
-			"title": "Create a Pocket Casts Sync Account",
-			"slug": "create-a-pocket-casts-sync-account",
+			"title": "How to create an API channel inbox",
+			"slug": "1677839703-how-to-create-an-api-channel-inbox",
 			"content": "Full article body",
 			"views": 25,
-			"link": "hc/pocket-casts-support/articles/create-a-pocket-casts-sync-account"
+			"link": "hc/user-guide/articles/1677839703-how-to-create-an-api-channel-inbox"
 		}`))
 	}))
 	t.Cleanup(server.Close)
 
 	client := NewClient(server.URL, "test-token", 9, WithHTTPClient(server.Client()))
-	article, err := client.HelpCenter().GetArticle("pocket-casts-support", "create-a-pocket-casts-sync-account")
+	article, err := client.HelpCenter().GetArticle("user-guide", "1677839703-how-to-create-an-api-channel-inbox")
 	if err != nil {
 		t.Fatalf("GetArticle returned error: %v", err)
 	}
-	if article.ID != 123 || article.Slug != "create-a-pocket-casts-sync-account" {
+	if article.ID != 123 || article.Slug != "1677839703-how-to-create-an-api-channel-inbox" {
 		t.Fatalf("unexpected article: %#v", article)
 	}
 }

@@ -24,8 +24,8 @@ func TestHCDefaultSavesPortalAndLocale(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"payload": [{
 				"id": 1,
-				"name": "Pocket Casts Support",
-				"slug": "pocket-casts-support",
+				"name": "Chatwoot User Guide",
+				"slug": "user-guide",
 				"config": {"default_locale": "en"}
 			}]
 		}`))
@@ -42,7 +42,7 @@ func TestHCDefaultSavesPortalAndLocale(t *testing.T) {
 	var out bytes.Buffer
 	app.Printer.Writer = &out
 
-	if err := (&HCDefaultCmd{Slug: "pocket-casts-support"}).Run(app); err != nil {
+	if err := (&HCDefaultCmd{Slug: "user-guide"}).Run(app); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -50,13 +50,13 @@ func TestHCDefaultSavesPortalAndLocale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
 	}
-	if loaded.HelpCenter.DefaultPortalSlug != "pocket-casts-support" {
+	if loaded.HelpCenter.DefaultPortalSlug != "user-guide" {
 		t.Fatalf("DefaultPortalSlug = %q", loaded.HelpCenter.DefaultPortalSlug)
 	}
 	if loaded.HelpCenter.DefaultLocale != "en" {
 		t.Fatalf("DefaultLocale = %q", loaded.HelpCenter.DefaultLocale)
 	}
-	if !strings.Contains(out.String(), "Default help center set to pocket-casts-support (en)") {
+	if !strings.Contains(out.String(), "Default help center set to user-guide (en)") {
 		t.Fatalf("unexpected output: %s", out.String())
 	}
 }
@@ -73,8 +73,8 @@ func TestHCsListsHelpCenters(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"payload": [{
 				"id": 1,
-				"name": "Pocket Casts Support",
-				"slug": "pocket-casts-support",
+				"name": "Chatwoot User Guide",
+				"slug": "user-guide",
 				"config": {
 					"default_locale": "en",
 					"allowed_locales": [{"code": "en"}, {"code": "fr"}]
@@ -98,7 +98,7 @@ func TestHCsListsHelpCenters(t *testing.T) {
 	if err := (&HCsCmd{}).Run(app); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	for _, want := range []string{"Pocket Casts Support", "pocket-casts-support", "en, fr", "12", "3"} {
+	for _, want := range []string{"Chatwoot User Guide", "user-guide", "en, fr", "12", "3"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output missing %q:\n%s", want, out.String())
 		}
@@ -112,7 +112,7 @@ func TestHCDefaultShowsAndClearsDefault(t *testing.T) {
 		BaseURL:   "https://example.test",
 		AccountID: 1,
 		HelpCenter: config.HelpCenterConfig{
-			DefaultPortalSlug: "pocket-casts-support",
+			DefaultPortalSlug: "user-guide",
 			DefaultLocale:     "en",
 		},
 	}
@@ -125,7 +125,7 @@ func TestHCDefaultShowsAndClearsDefault(t *testing.T) {
 	if err := (&HCDefaultCmd{}).Run(showApp); err != nil {
 		t.Fatalf("show Run: %v", err)
 	}
-	if !strings.Contains(showOut.String(), "pocket-casts-support") || !strings.Contains(showOut.String(), "en") {
+	if !strings.Contains(showOut.String(), "user-guide") || !strings.Contains(showOut.String(), "en") {
 		t.Fatalf("unexpected show output: %s", showOut.String())
 	}
 
@@ -148,7 +148,7 @@ func TestHCArticlesRendersTextTable(t *testing.T) {
 	setupTestEnv(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/hc/pocket-casts-support/en/articles.json" {
+		if r.URL.Path != "/hc/user-guide/en/articles.json" {
 			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
 			return
 		}
@@ -160,7 +160,7 @@ func TestHCArticlesRendersTextTable(t *testing.T) {
 				"slug": "create-account",
 				"description": "Short setup guide",
 				"category": {"id": 4, "slug": "accounts", "locale": "en"},
-				"link": "hc/pocket-casts-support/articles/create-account"
+				"link": "hc/user-guide/articles/create-account"
 			}],
 			"meta": {"articles_count": 1}
 		}`))
@@ -171,7 +171,7 @@ func TestHCArticlesRendersTextTable(t *testing.T) {
 		BaseURL:   server.URL,
 		AccountID: 1,
 		HelpCenter: config.HelpCenterConfig{
-			DefaultPortalSlug: "pocket-casts-support",
+			DefaultPortalSlug: "user-guide",
 			DefaultLocale:     "en",
 		},
 	}); err != nil {
@@ -198,7 +198,7 @@ func TestHCArticlesUsesConfiguredDefaults(t *testing.T) {
 	setupTestEnv(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/hc/pocket-casts-support/en/articles.json" {
+		if r.URL.Path != "/hc/user-guide/en/articles.json" {
 			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
 			return
 		}
@@ -220,7 +220,7 @@ func TestHCArticlesUsesConfiguredDefaults(t *testing.T) {
 		BaseURL:   server.URL,
 		AccountID: 1,
 		HelpCenter: config.HelpCenterConfig{
-			DefaultPortalSlug: "pocket-casts-support",
+			DefaultPortalSlug: "user-guide",
 			DefaultLocale:     "en",
 		},
 	}); err != nil {
@@ -253,7 +253,7 @@ func TestHCArticlesOverridesConfiguredDefaults(t *testing.T) {
 	setupTestEnv(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/hc/other/fr/categories/getting-started/articles.json" {
+		if r.URL.Path != "/hc/other/fr/categories/channels/articles.json" {
 			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
 			return
 		}
@@ -272,7 +272,7 @@ func TestHCArticlesOverridesConfiguredDefaults(t *testing.T) {
 		BaseURL:   server.URL,
 		AccountID: 1,
 		HelpCenter: config.HelpCenterConfig{
-			DefaultPortalSlug: "pocket-casts-support",
+			DefaultPortalSlug: "user-guide",
 			DefaultLocale:     "en",
 		},
 	}); err != nil {
@@ -287,7 +287,7 @@ func TestHCArticlesOverridesConfiguredDefaults(t *testing.T) {
 	if err := (&HCArticlesCmd{
 		PortalSlug:   "other",
 		Locale:       "fr",
-		CategorySlug: "getting-started",
+		CategorySlug: "channels",
 		Page:         2,
 		PerPage:      10,
 	}).Run(app); err != nil {
@@ -299,7 +299,7 @@ func TestHCArticleUsesConfiguredPortal(t *testing.T) {
 	setupTestEnv(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/hc/pocket-casts-support/articles/create-account.json" {
+		if r.URL.Path != "/hc/user-guide/articles/create-account.json" {
 			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
 			return
 		}
@@ -312,7 +312,7 @@ func TestHCArticleUsesConfiguredPortal(t *testing.T) {
 		BaseURL:   server.URL,
 		AccountID: 1,
 		HelpCenter: config.HelpCenterConfig{
-			DefaultPortalSlug: "pocket-casts-support",
+			DefaultPortalSlug: "user-guide",
 			DefaultLocale:     "en",
 		},
 	}); err != nil {

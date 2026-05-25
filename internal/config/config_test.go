@@ -45,7 +45,7 @@ func TestSaveAndLoadHelpCenterDefaults(t *testing.T) {
 		BaseURL:   "https://app.chatwoot.com",
 		AccountID: 123,
 		HelpCenter: HelpCenterConfig{
-			DefaultPortalSlug: "pocket-casts-support",
+			DefaultPortalSlug: "user-guide",
 			DefaultLocale:     "en",
 		},
 	}
@@ -58,8 +58,8 @@ func TestSaveAndLoadHelpCenterDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if loaded.HelpCenter.DefaultPortalSlug != "pocket-casts-support" {
-		t.Fatalf("DefaultPortalSlug = %q, want pocket-casts-support", loaded.HelpCenter.DefaultPortalSlug)
+	if loaded.HelpCenter.DefaultPortalSlug != "user-guide" {
+		t.Fatalf("DefaultPortalSlug = %q, want user-guide", loaded.HelpCenter.DefaultPortalSlug)
 	}
 	if loaded.HelpCenter.DefaultLocale != "en" {
 		t.Fatalf("DefaultLocale = %q, want en", loaded.HelpCenter.DefaultLocale)
@@ -74,7 +74,7 @@ func TestSaveAndLoadHelpCenterDefaults(t *testing.T) {
 		t.Fatalf("ReadFile() error = %v", err)
 	}
 	content := string(data)
-	for _, want := range []string{"help_center:", "default_portal_slug: pocket-casts-support", "default_locale: en"} {
+	for _, want := range []string{"help_center:", "default_portal_slug: user-guide", "default_locale: en"} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("saved config missing %q: %s", want, content)
 		}
