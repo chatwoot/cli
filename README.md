@@ -58,6 +58,13 @@ chatwoot contact 456 conversations
 chatwoot inboxes / agents / labels / teams     # List
 chatwoot me                                    # Your profile
 
+chatwoot hcs                                   # List help centers
+chatwoot hc default chatwoot-support       # Save default help center and locale
+chatwoot hc articles --query "account"
+chatwoot hc articles --category getting-started
+chatwoot hc article create-a-agent-bot
+chatwoot hc articles --portal other-help-center --locale fr
+
 chatwoot api /conversations/123                # Expands to /api/v1/accounts/<id>/conversations/123
 chatwoot api -X PATCH /conversations/123 --data '{"status":"open"}'
 ```

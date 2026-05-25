@@ -3,12 +3,12 @@ name: chatwoot-cli
 description: >
   Operate Chatwoot helpdesks from the terminal — list and triage conversations,
   send replies and private notes, assign agents and teams, change status, set
-  labels and priority, search contacts, and inspect inboxes via the `chatwoot`
-  CLI. Use when the user wants to read, summarize, or act on Chatwoot
-  conversations from the shell, scripts, agent workflows, or CI. Always load
-  this skill before running `chatwoot` commands — it contains the noun/verb
-  grammar, the output-format contract, and the safety rules that prevent
-  customer-visible mistakes.
+  labels and priority, search contacts, inspect inboxes, and search help
+  center articles via the `chatwoot` CLI. Use when the user wants to read,
+  summarize, or act on Chatwoot conversations or help center content from the
+  shell, scripts, agent workflows, or CI. Always load this skill before running
+  `chatwoot` commands — it contains the noun/verb grammar, the output-format
+  contract, and the safety rules that prevent customer-visible mistakes.
 license: MIT
 metadata:
   author: chatwoot
@@ -39,6 +39,9 @@ explicitly.
   instead.
 - Prefer first-class commands over `chatwoot api`. Use raw API calls only when
   no command exists or the user explicitly asks for an endpoint-level call.
+- Use help center lookup only when the user asks for help center content,
+  article search, or knowledge-base context. Do not make it the default step
+  for ordinary conversation triage.
 - Before raw API calls, check the application Swagger:
   https://raw.githubusercontent.com/chatwoot/chatwoot/develop/swagger/tag_groups/application_swagger.json
 - Use `-v` (verbose) to see the underlying HTTP request/response when
@@ -98,6 +101,10 @@ chatwoot convs --help         # filters for the list command
 | `contact <id>` / `<id> conversations` | View a contact / list their conversations    |
 | `inboxes` / `inbox <id>`         | List inboxes / view one                           |
 | `agents` / `labels` / `teams`    | List account-level resources                      |
+| `hcs`                            | List help centers                                 |
+| `hc default [slug]`              | Show or set default help center                   |
+| `hc articles [--query text]`     | List/search help center articles                  |
+| `hc article <article-slug>`      | Fetch one help center article                     |
 | `me` / `whoami` / `auth status`  | Show current identity                             |
 | `api <path>`                      | Call an arbitrary Chatwoot API endpoint with saved auth headers |
 | `auth login` / `logout`          | Interactive login / remove credentials            |
@@ -181,6 +188,15 @@ chatwoot convs -l spam -q | xargs -I{} chatwoot conv {} resolve
 ```bash
 id=$(chatwoot contacts --search "jane@example.com" -o json | jq '.payload[0].id')
 chatwoot contact "$id" conversations -o json
+```
+
+**Help center lookup** — set a default portal once, then search/fetch articles:
+```bash
+chatwoot hcs -o json
+chatwoot hc default pocket-casts-support
+chatwoot hc articles --query "account" -o json
+chatwoot hc articles --category getting-started -o json
+chatwoot hc article create-a-pocket-casts-sync-account -o json
 ```
 
 **Raw API call** — account-relative paths are expanded under `/api/v1/accounts/<account_id>`, so do not include the `/api/v1/accounts/...` prefix:
