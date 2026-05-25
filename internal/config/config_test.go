@@ -38,6 +38,49 @@ func TestSaveOmitsAPIKey(t *testing.T) {
 	}
 }
 
+func TestSaveAndLoadHelpCenterDefaults(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	cfg := &Config{
+		BaseURL:   "https://app.chatwoot.com",
+		AccountID: 123,
+		HelpCenter: HelpCenterConfig{
+			DefaultPortalSlug: "pocket-casts-support",
+			DefaultLocale:     "en",
+		},
+	}
+
+	if err := Save(cfg); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if loaded.HelpCenter.DefaultPortalSlug != "pocket-casts-support" {
+		t.Fatalf("DefaultPortalSlug = %q, want pocket-casts-support", loaded.HelpCenter.DefaultPortalSlug)
+	}
+	if loaded.HelpCenter.DefaultLocale != "en" {
+		t.Fatalf("DefaultLocale = %q, want en", loaded.HelpCenter.DefaultLocale)
+	}
+
+	path, err := ConfigPath()
+	if err != nil {
+		t.Fatalf("ConfigPath() error = %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	content := string(data)
+	for _, want := range []string{"help_center:", "default_portal_slug: pocket-casts-support", "default_locale: en"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("saved config missing %q: %s", want, content)
+		}
+	}
+}
+
 func TestLegacyAPIKeyIsIgnoredAndRemovedOnSave(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

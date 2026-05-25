@@ -10,9 +10,15 @@ import (
 )
 
 type Config struct {
-	BaseURL   string `yaml:"base_url"`
-	AccountID int    `yaml:"account_id"`
-	UserID    int    `yaml:"user_id,omitempty"`
+	BaseURL    string           `yaml:"base_url"`
+	AccountID  int              `yaml:"account_id"`
+	UserID     int              `yaml:"user_id,omitempty"`
+	HelpCenter HelpCenterConfig `yaml:"help_center,omitempty"`
+}
+
+type HelpCenterConfig struct {
+	DefaultPortalSlug string `yaml:"default_portal_slug,omitempty"`
+	DefaultLocale     string `yaml:"default_locale,omitempty"`
 }
 
 func ConfigDir() (string, error) {

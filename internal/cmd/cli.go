@@ -19,17 +19,19 @@ type CLI struct {
 	Verbose bool   `short:"v" help:"Show request/response details."`
 
 	// Plurals — list commands.
-	Convs    ConvsCmd    `cmd:"" aliases:"conversations" help:"List conversations."`
-	Contacts ContactsCmd `cmd:"" help:"List or search contacts."`
-	Inboxes  InboxesCmd  `cmd:"" help:"List inboxes."`
-	Agents   AgentsCmd   `cmd:"" help:"List agents."`
-	Labels   LabelsCmd   `cmd:"" help:"List labels."`
-	Teams    TeamsCmd    `cmd:"" help:"List teams."`
+	Convs       ConvsCmd    `cmd:"" aliases:"conversations" help:"List conversations."`
+	Contacts    ContactsCmd `cmd:"" help:"List or search contacts."`
+	Inboxes     InboxesCmd  `cmd:"" help:"List inboxes."`
+	Agents      AgentsCmd   `cmd:"" help:"List agents."`
+	Labels      LabelsCmd   `cmd:"" help:"List labels."`
+	Teams       TeamsCmd    `cmd:"" help:"List teams."`
+	HelpCenters HCsCmd      `cmd:"" name:"hcs" aliases:"help-centers" help:"List help centers."`
 
 	// Singulars — context for verbs and subresources.
-	Conv    ConvCmd    `cmd:"" aliases:"conversation" help:"View or act on a conversation."`
-	Contact ContactCmd `cmd:"" help:"View a contact."`
-	Inbox   InboxCmd   `cmd:"" help:"View an inbox."`
+	Conv       ConvCmd    `cmd:"" aliases:"conversation" help:"View or act on a conversation."`
+	Contact    ContactCmd `cmd:"" help:"View a contact."`
+	Inbox      InboxCmd   `cmd:"" help:"View an inbox."`
+	HelpCenter HCCmd      `cmd:"" name:"hc" aliases:"help-center" help:"List, search, or view help center articles."`
 
 	// Workflow. `me` and `whoami` are aliases of `auth status`.
 	Me     MeCmd     `cmd:"" help:"Show identity and connection (alias of 'auth status')."`

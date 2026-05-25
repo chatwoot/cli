@@ -332,3 +332,8 @@ func (c *Client) Teams() *TeamsService {
 func (c *Client) Profile() *ProfileService {
 	return &ProfileService{client: c}
 }
+
+// HelpCenter returns the help center service.
+func (c *Client) HelpCenter() *HelpCenterService {
+	return &HelpCenterService{client: c}
+}
