@@ -52,6 +52,7 @@ type HCCmd struct {
 	Default  HCDefaultCmd  `cmd:"" help:"Show, set, or clear the default help center."`
 	Articles HCArticlesCmd `cmd:"" help:"List or search public help center articles."`
 	Article  HCArticleCmd  `cmd:"" help:"Get a public help center article."`
+	Import   HCImportCmd   `cmd:"" help:"Import help center content from another provider."`
 }
 
 type HCDefaultCmd struct {
