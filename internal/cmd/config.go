@@ -39,11 +39,15 @@ func (c *ConfigViewCmd) Run(app *App) error {
 
 	credential := credentialStatus(cfg)
 
-	app.Printer.PrintDetail([]output.KeyValue{
+	detail := []output.KeyValue{
 		{Key: "Base URL", Value: cfg.BaseURL},
 		{Key: "Account ID", Value: fmt.Sprintf("%d", cfg.AccountID)},
 		{Key: "Credential", Value: credential},
-	})
+	}
+	if config.IsDev {
+		detail = append(detail, output.KeyValue{Key: "Profile", Value: "dev"})
+	}
+	app.Printer.PrintDetail(detail)
 
 	return nil
 }

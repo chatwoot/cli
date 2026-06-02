@@ -34,7 +34,7 @@ func ConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "config.yaml"), nil
+	return filepath.Join(dir, configFileName), nil
 }
 
 func Load() (*Config, error) {

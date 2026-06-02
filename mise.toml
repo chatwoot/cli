@@ -8,8 +8,8 @@ description = "Build the CLI"
 run = "mkdir -p ./bin && go build -o ./bin/chatwoot ./cmd/chatwoot/"
 
 [tasks.dev]
-description = "Auto-build on Go file changes"
-run = "mkdir -p ./bin && watchexec -e go --restart --debounce 300 -- go build -o ./bin/chatwoot ./cmd/chatwoot/"
+description = "Auto-build on Go file changes (dev profile: separate config + keyring)"
+run = "mkdir -p ./bin && watchexec -e go --restart --debounce 300 -- go build -tags dev -o ./bin/chatwoot ./cmd/chatwoot/"
 
 [tasks.lint]
 description = "Run golangci-lint across the module"

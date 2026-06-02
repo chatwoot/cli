@@ -11,10 +11,13 @@ import (
 )
 
 const (
-	APIKeyEnv          = "CHATWOOT_API_KEY"
-	keyringService     = "chatwoot-cli"
-	apiKeyKeyringEntry = "api-key"
+	APIKeyEnv      = "CHATWOOT_API_KEY"
+	keyringService = "chatwoot-cli"
 )
+
+// apiKeyKeyringEntry is the keyring entry name and is build-profile specific:
+// "api-key" for prod, "api-key-dev" for dev builds. See profile_prod.go /
+// profile_dev.go.
 
 type CredentialSource string
 
