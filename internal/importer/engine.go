@@ -33,7 +33,10 @@ type ExecuteOptions struct {
 // Plan builds the ordered, resolved set of writes from a scanned corpus and the
 // user's selections. It performs no network calls — author resolution uses the
 // pre-built resolver, and skip flags come from the loaded state.
-func Plan(corpus *Corpus, sel Selections, resolver *AuthorResolver, st *State) *ImportPlan {
+// reservedCategorySlugs are slugs already present in the target portal; the
+// planner disambiguates new category slugs against them so a first-run import
+// into an existing portal does not collide with categories created elsewhere.
+func Plan(corpus *Corpus, sel Selections, resolver *AuthorResolver, st *State, reservedCategorySlugs []string) *ImportPlan {
 	if st == nil {
 		st = NewState("", "", "")
 	}
@@ -42,7 +45,7 @@ func Plan(corpus *Corpus, sel Selections, resolver *AuthorResolver, st *State) *
 		defaultLocale = "en"
 	}
 
-	cats, needed := planCategories(corpus, sel, st, defaultLocale)
+	cats, needed := planCategories(corpus, sel, st, defaultLocale, reservedCategorySlugs)
 	articles := planArticles(corpus, sel, resolver, st)
 
 	portalLocales := unionLocales([]string{defaultLocale}, mapKeys(needed), sel.Locales)
@@ -57,7 +60,7 @@ func Plan(corpus *Corpus, sel Selections, resolver *AuthorResolver, st *State) *
 	}
 }
 
-func planCategories(corpus *Corpus, sel Selections, st *State, defaultLocale string) ([]PlannedCategory, map[string]bool) {
+func planCategories(corpus *Corpus, sel Selections, st *State, defaultLocale string, reservedSlugs []string) ([]PlannedCategory, map[string]bool) {
 	selSet := toSet(sel.Locales)
 	collByID := make(map[string]Collection, len(corpus.Collections))
 	for _, c := range corpus.Collections {
@@ -109,13 +112,31 @@ func planCategories(corpus *Corpus, sel Selections, st *State, defaultLocale str
 		addNeed(coll, defaultLocale)
 	}
 
+	// Assign each collection a slug that is unique among collections. Two
+	// collections with the same default-locale name would otherwise share a
+	// slug and collide on create (category slugs are unique per slug+locale+
+	// portal). A collection reuses its one slug across all its locales (that is
+	// allowed and ties its translations together). Slugs already present in the
+	// target portal are reserved up front so we also avoid colliding with
+	// categories created outside this import. Assignment is deterministic
+	// because we iterate in topo order.
+	usedSlugs := map[string]bool{}
+	for _, s := range reservedSlugs {
+		usedSlugs[s] = true
+	}
+
 	var planned []PlannedCategory
 	for _, c := range order {
 		locs := need[c.ID]
 		if len(locs) == 0 {
 			continue
 		}
-		slug := Slugify(c.Name(defaultLocale, defaultLocale))
+		base := Slugify(c.Name(defaultLocale, defaultLocale))
+		slug := base
+		for n := 2; usedSlugs[slug]; n++ {
+			slug = fmt.Sprintf("%s-%d", base, n)
+		}
+		usedSlugs[slug] = true
 		parent := ""
 		if c.ParentID != "" && collByID[c.ParentID].ID != "" {
 			parent = c.ParentID

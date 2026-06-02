@@ -44,6 +44,9 @@ type intercomImportDeps struct {
 	fallbackAuthor  int
 	stateDir        string
 	out             io.Writer
+	// listCategorySlugs returns the slugs of categories already in a portal so
+	// the planner can avoid colliding with them. Optional (nil for fakes).
+	listCategorySlugs func(portalSlug string) ([]string, error)
 }
 
 // Run wires real dependencies (TTY check, Intercom client, term prompter,
@@ -95,6 +98,19 @@ func (c *HCImportIntercomCmd) Run(app *App) error {
 		fallbackAuthor:  fallbackAuthor,
 		stateDir:        filepath.Join(dir, "imports"),
 		out:             w,
+		listCategorySlugs: func(portalSlug string) ([]string, error) {
+			resp, err := app.Client.HelpCenter().ListCategories(portalSlug, "")
+			if err != nil {
+				return nil, err
+			}
+			slugs := make([]string, 0, len(resp.Payload))
+			for _, c := range resp.Payload {
+				if c.Slug != "" {
+					slugs = append(slugs, c.Slug)
+				}
+			}
+			return slugs, nil
+		},
 	}
 
 	_, err = runIntercomImport(context.Background(), deps)
@@ -148,8 +164,19 @@ func runIntercomImport(ctx context.Context, deps intercomImportDeps) (*importer.
 		st = importer.NewState(deps.source.Name(), workspaceID, sourceHC.ID)
 	}
 
+	// Reserve slugs already in an existing target portal so generated category
+	// slugs don't collide with categories created outside this import.
+	var reservedCategorySlugs []string
+	if !target.IsCreate() && deps.listCategorySlugs != nil {
+		slugs, err := deps.listCategorySlugs(target.Slug())
+		if err != nil {
+			return nil, fmt.Errorf("failed to read existing categories in %q: %w", target.Slug(), err)
+		}
+		reservedCategorySlugs = slugs
+	}
+
 	sel := importer.Selections{SourceHCID: sourceHC.ID, Target: target, Locales: locales}
-	plan := importer.Plan(corpus, sel, resolver, st)
+	plan := importer.Plan(corpus, sel, resolver, st, reservedCategorySlugs)
 
 	renderPlanSummary(w, plan, target)
 	ok, err := deps.prompter.Confirm("Proceed?")

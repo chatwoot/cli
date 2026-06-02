@@ -63,7 +63,7 @@ func runImport(t *testing.T, corpus *Corpus, sel Selections, st *State) (*fakeSi
 		st = NewState("intercom", "ws", "hc1")
 	}
 	resolver := NewAuthorResolver(corpus.Authors, map[string]int{"ada@acme.com": 42}, 1)
-	plan := Plan(corpus, sel, resolver, st)
+	plan := Plan(corpus, sel, resolver, st, nil)
 
 	sink := &fakeSink{}
 	statePath := filepath.Join(t.TempDir(), "state.json")
@@ -233,5 +233,56 @@ func TestExecuteResumeSkipsCreatedItems(t *testing.T) {
 	// fr variant still links to the pre-existing en root id from state.
 	if sink.arts[0].AssociatedArticleID != 100 {
 		t.Errorf("fr article associated id = %d, want 100 (resumed root)", sink.arts[0].AssociatedArticleID)
+	}
+}
+
+func TestPlanDisambiguatesDuplicateCategorySlugs(t *testing.T) {
+	corpus := &Corpus{
+		HelpCenter: HelpCenter{ID: "hc1", DefaultLocale: "en"},
+		Collections: []Collection{
+			{ID: "c1", Names: map[string]string{"en": "FAQ"}},
+			{ID: "c2", Names: map[string]string{"en": "FAQ"}},
+		},
+		Articles: []Article{
+			{ID: "a1", CollectionID: "c1", DefaultLocale: "en", Variants: map[string]ArticleVariant{"en": {Locale: "en", Title: "x", BodyHTML: "<p>x</p>"}}},
+			{ID: "a2", CollectionID: "c2", DefaultLocale: "en", Variants: map[string]ArticleVariant{"en": {Locale: "en", Title: "y", BodyHTML: "<p>y</p>"}}},
+		},
+		Authors: map[string]Author{},
+		Locales: []string{"en"},
+	}
+	resolver := NewAuthorResolver(corpus.Authors, map[string]int{}, 1)
+	plan := Plan(corpus, Selections{SourceHCID: "hc1", Target: PortalTarget{CreateSlug: "p"}, Locales: []string{"en"}}, resolver, NewState("i", "w", "hc1"), nil)
+
+	slugByColl := map[string]string{}
+	for _, pc := range plan.Categories {
+		slugByColl[pc.CollectionID] = pc.Slug
+	}
+	if slugByColl["c1"] == "" || slugByColl["c2"] == "" {
+		t.Fatalf("missing slugs: %#v", slugByColl)
+	}
+	if slugByColl["c1"] == slugByColl["c2"] {
+		t.Fatalf("duplicate-named collections must get distinct slugs, both = %q", slugByColl["c1"])
+	}
+}
+
+func TestPlanAvoidsReservedCategorySlugs(t *testing.T) {
+	corpus := &Corpus{
+		HelpCenter:  HelpCenter{ID: "hc1", DefaultLocale: "en"},
+		Collections: []Collection{{ID: "c1", Names: map[string]string{"en": "Getting Started"}}},
+		Articles: []Article{
+			{ID: "a1", CollectionID: "c1", DefaultLocale: "en", Variants: map[string]ArticleVariant{"en": {Locale: "en", Title: "x", BodyHTML: "<p>x</p>"}}},
+		},
+		Authors: map[string]Author{},
+		Locales: []string{"en"},
+	}
+	resolver := NewAuthorResolver(corpus.Authors, map[string]int{}, 1)
+	// "getting-started" already exists in the portal.
+	plan := Plan(corpus, Selections{SourceHCID: "hc1", Target: PortalTarget{ExistingSlug: "p"}, Locales: []string{"en"}}, resolver, NewState("i", "w", "hc1"), []string{"getting-started"})
+
+	if len(plan.Categories) != 1 {
+		t.Fatalf("categories = %d, want 1", len(plan.Categories))
+	}
+	if plan.Categories[0].Slug == "getting-started" {
+		t.Fatalf("slug should avoid the reserved one, got %q", plan.Categories[0].Slug)
 	}
 }
