@@ -2,6 +2,7 @@ package intercom
 
 import (
 	"encoding/json"
+	"net/url"
 	"strings"
 )
 
@@ -59,12 +60,18 @@ func (p *pages) nextCursor() string {
 	}
 	var s string
 	if err := json.Unmarshal(p.Next, &s); err == nil && s != "" {
-		if i := strings.Index(s, "starting_after="); i >= 0 {
-			rest := s[i+len("starting_after="):]
-			if amp := strings.IndexByte(rest, '&'); amp >= 0 {
-				return rest[:amp]
+		// next may be a full URL or a bare query string. Parse it and read the
+		// decoded starting_after value, so percent-encoded cursors (%2F, %3D…)
+		// are not re-encoded when we put them back on the next request.
+		if u, err := url.Parse(s); err == nil && u.RawQuery != "" {
+			if sa := u.Query().Get("starting_after"); sa != "" {
+				return sa
 			}
-			return rest
+		}
+		if vals, err := url.ParseQuery(s); err == nil {
+			if sa := vals.Get("starting_after"); sa != "" {
+				return sa
+			}
 		}
 	}
 	return ""
