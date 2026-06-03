@@ -167,22 +167,23 @@ func TestAuthStatusNotLoggedIn(t *testing.T) {
 
 func TestAuthLogoutRemovesKeyringTokenWithoutConfig(t *testing.T) {
 	keyring.MockInit()
-	if err := keyring.DeleteAll("chatwoot-cli"); err != nil {
-		t.Fatalf("keyring.DeleteAll: %v", err)
-	}
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(config.APIKeyEnv, "")
 
-	if err := keyring.Set("chatwoot-cli", "api-key", "stale-token"); err != nil {
-		t.Fatalf("keyring.Set: %v", err)
+	// Seed the token through the production path so it lands under whichever
+	// keyring service the active build profile uses (prod vs dev), without
+	// writing config.yaml — this exercises logout with no config present.
+	seed := &config.Config{BaseURL: "https://app.chatwoot.com", AccountID: 1}
+	if err := config.SaveAPIKey(seed, "stale-token"); err != nil {
+		t.Fatalf("SaveAPIKey: %v", err)
 	}
 
 	if err := (&AuthLogoutCmd{}).Run(&App{}); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
-	if _, err := keyring.Get("chatwoot-cli", "api-key"); !errors.Is(err, keyring.ErrNotFound) {
-		t.Fatalf("expected logout to delete stale keyring token, err = %v", err)
+	if _, _, err := config.ResolveAPIKey(seed); !errors.Is(err, config.ErrAPIKeyNotFound) {
+		t.Fatalf("expected logout to delete the keyring token, err = %v", err)
 	}
 }
 

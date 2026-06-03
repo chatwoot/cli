@@ -20,19 +20,22 @@ Credential resolution and OS keyring storage. Provides:
 
 ## Build Profiles (dev vs prod)
 
-`configFileName` and `apiKeyKeyringEntry` are selected at build time via the
-`dev` build tag (`profile_prod.go` for `//go:build !dev`, `profile_dev.go` for
+`configFileName` and `keyringService` are selected at build time via the `dev`
+build tag (`profile_prod.go` for `//go:build !dev`, `profile_dev.go` for
 `//go:build dev`):
 
-| | config file | keyring entry | `config.IsDev` |
+| | config file | keyring service | `config.IsDev` |
 |---|---|---|---|
-| prod (default `go build`, releases) | `~/.chatwoot/config.yaml` | `api-key` | `false` |
-| dev (`go build -tags dev`, `mise run dev`) | `~/.chatwoot/config.dev.yaml` | `api-key-dev` | `true` |
+| prod (default `go build`, releases) | `~/.chatwoot/config.yaml` | `chatwoot-cli` | `false` |
+| dev (`go build -tags dev`, `mise run dev`) | `~/.chatwoot/config.dev.yaml` | `chatwoot-cli-dev` | `true` |
 
 A dev build keeps its own credentials, so iterating on the CLI never reads or
-clobbers the production login. Release builds (goreleaser passes no tags)
-exclude `profile_dev.go` entirely — the dev path is compiled out. `config view`
-shows a `Profile: dev` line on dev builds.
+clobbers the production login. The keyring **service** (not just the entry name)
+is namespaced per profile, so `auth logout` — which does
+`keyring.DeleteAll(keyringService)` to clear stale entries — only wipes the
+active build's tokens and never the other profile's. Release builds (goreleaser
+passes no tags) exclude `profile_dev.go` entirely — the dev path is compiled
+out. `config view` shows a `Profile: dev` line on dev builds.
 
 ## Config Schema
 

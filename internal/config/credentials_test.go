@@ -193,3 +193,40 @@ func TestDeleteAPIKeyRemovesAllServiceEntries(t *testing.T) {
 		}
 	}
 }
+
+// TestDeleteAPIKeyLeavesOtherProfileServiceIntact guards the dev/prod isolation
+// guarantee: keyringService is namespaced per build profile, so logging out of
+// one build must not delete the other build's saved token. DeleteAPIKey wipes
+// only keyringService, never another service's entries.
+func TestDeleteAPIKeyLeavesOtherProfileServiceIntact(t *testing.T) {
+	initMockKeyring(t)
+	cfg := &Config{BaseURL: "https://app.chatwoot.com", AccountID: 130}
+
+	// Stand in for the other build profile's keyring namespace (prod's
+	// "chatwoot-cli" vs dev's "chatwoot-cli-dev"); the exact name doesn't matter,
+	// only that it differs from the active keyringService.
+	const otherProfileService = "chatwoot-cli-other-profile"
+	if err := keyring.Set(otherProfileService, apiKeyKeyringEntry, "other-profile-token"); err != nil {
+		t.Fatalf("seed other-profile service: %v", err)
+	}
+	if err := SaveAPIKey(cfg, "this-profile-token"); err != nil {
+		t.Fatalf("SaveAPIKey() error = %v", err)
+	}
+
+	if err := DeleteAPIKey(cfg); err != nil {
+		t.Fatalf("DeleteAPIKey() error = %v", err)
+	}
+
+	// Active profile's token is gone...
+	if _, _, err := ResolveAPIKey(cfg); !errors.Is(err, ErrAPIKeyNotFound) {
+		t.Fatalf("active profile token survived logout, err = %v", err)
+	}
+	// ...but the other profile's token must be untouched.
+	got, err := keyring.Get(otherProfileService, apiKeyKeyringEntry)
+	if err != nil {
+		t.Fatalf("other profile token erased by logout: %v", err)
+	}
+	if got != "other-profile-token" {
+		t.Fatalf("other profile token = %q, want other-profile-token", got)
+	}
+}

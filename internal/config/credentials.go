@@ -11,12 +11,14 @@ import (
 )
 
 const (
-	APIKeyEnv      = "CHATWOOT_API_KEY"
-	keyringService = "chatwoot-cli"
+	APIKeyEnv          = "CHATWOOT_API_KEY"
+	apiKeyKeyringEntry = "api-key"
 )
 
-// apiKeyKeyringEntry is the keyring entry name and is build-profile specific:
-// "api-key" for prod, "api-key-dev" for dev builds. See profile_prod.go /
+// keyringService is build-profile specific ("chatwoot-cli" for prod,
+// "chatwoot-cli-dev" for dev). Namespacing the whole service per profile keeps
+// logout's DeleteAll(keyringService) scoped to the active build, so a dev logout
+// can't erase a prod login's token and vice versa. See profile_prod.go /
 // profile_dev.go.
 
 type CredentialSource string
