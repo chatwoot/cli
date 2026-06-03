@@ -2,7 +2,6 @@ package config
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -93,7 +92,12 @@ func TestLegacyAPIKeyIsIgnoredAndRemovedOnSave(t *testing.T) {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
 
-	path := filepath.Join(dir, "config.yaml")
+	// Derive the path from ConfigPath() rather than hardcoding "config.yaml" so
+	// this test is correct under any build profile (e.g. dev → config.dev.yaml).
+	path, err := ConfigPath()
+	if err != nil {
+		t.Fatalf("ConfigPath() error = %v", err)
+	}
 	legacy := "base_url: https://app.chatwoot.com\napi_key: plaintext-token\naccount_id: 123\n"
 	if err := os.WriteFile(path, []byte(legacy), 0600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
