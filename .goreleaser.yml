@@ -51,6 +51,9 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
+# The release body is supplied from CHANGELOG.md via `--release-notes` in the
+# release workflow, so this generated changelog is used only as a fallback if
+# that flag is ever dropped.
 changelog:
   sort: asc
   use: github
