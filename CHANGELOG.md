@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.6.0] - 2026-06-03
+
+### Added
+
 - Help center commands for managing portals and articles ([#15](https://github.com/chatwoot/cli/pull/15)).
 
 ### Changed
