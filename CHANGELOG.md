@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.6.1] - 2026-06-03
+
+### Fixed
+
+- Release workflow wrote the extracted release notes into the working tree, leaving git dirty and causing GoReleaser to abort with a "dirty state" error. The notes are now written to the runner temp directory, and `release_notes.md` is gitignored as a safety net for local dry runs.
+
 ## [0.6.0] - 2026-06-03
 
 ### Added
@@ -117,7 +123,8 @@ First release. A CLI for Chatwoot that reads and writes the same Chatwoot API yo
 
 Install with `curl -fsSL https://chwt.app/install-cli | sh`, then `chatwoot auth login`.
 
-[Unreleased]: https://github.com/chatwoot/cli/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/chatwoot/cli/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/chatwoot/cli/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/chatwoot/cli/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/chatwoot/cli/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/chatwoot/cli/compare/v0.3.0...v0.4.0
