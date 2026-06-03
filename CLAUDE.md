@@ -52,3 +52,19 @@ internal/
 ## Commits
 
 Use conventional commits without scope: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
+
+## Releasing
+
+Releases are tag-driven and the GitHub release body comes from `CHANGELOG.md`.
+
+1. Move the relevant items from `## [Unreleased]` into a new `## [x.y.z] - YYYY-MM-DD` section in `CHANGELOG.md`, and add its `[x.y.z]: .../compare/...` link at the bottom. (Follow [Keep a Changelog](https://keepachangelog.com/) / SemVer.)
+2. Commit, then push tag `vx.y.z` (must match the changelog version, minus the `v`).
+3. The `release` workflow (`.github/workflows/release.yml`) runs tests, extracts that version's section from `CHANGELOG.md` with awk, and passes it to GoReleaser via `--release-notes`. **If no matching section exists, the release fails fast** — so the changelog must be updated before tagging.
+4. GoReleaser (`.goreleaser.yml`) builds the cross-platform archives, checksums, and the GitHub release; its own `changelog:` block is only a fallback if `--release-notes` is ever dropped.
+
+Dry run (local goreleaser must be v2; CI pins `2.15.4`):
+
+```bash
+go run github.com/goreleaser/goreleaser/v2@v2.15.4 check
+go run github.com/goreleaser/goreleaser/v2@v2.15.4 release --snapshot --clean --skip=publish
+```

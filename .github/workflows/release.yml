@@ -29,11 +29,27 @@ jobs:
       - name: go test
         run: go test -race -count=1 ./...
 
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v ver="$version" '
+            # Stop at the next version heading or the link-reference footer.
+            found && (/^## \[/ || /^\[[^]]+\]: /) { exit }
+            /^## \[/ && index($0, "[" ver "]") { found=1; next }
+            found { print }
+          ' CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "::error::No CHANGELOG.md section found for version $version"
+            exit 1
+          fi
+          echo "----- release notes for $version -----"
+          cat release_notes.md
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: "2.15.4"
-          args: release --clean
+          args: release --clean --release-notes=release_notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
