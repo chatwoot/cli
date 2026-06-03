@@ -3,13 +3,16 @@ package cmd
 import (
 	"bytes"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/chatwoot/cli/internal/config"
 	"github.com/chatwoot/cli/internal/output"
+	"github.com/chatwoot/cli/internal/sdk"
 	"github.com/zalando/go-keyring"
 )
 
@@ -122,6 +125,33 @@ func TestLoginSuccessMessageStripsTerminalControls(t *testing.T) {
 	}
 	if !strings.Contains(got, "Logged in as Eve (eve@example.com)") {
 		t.Fatalf("login success message stripped printable content: %q", got)
+	}
+}
+
+func TestVerifyAccountAccess(t *testing.T) {
+	accounts := []sdk.ProfileAccount{
+		{ID: 7, Name: "Acme", Role: "administrator"},
+		{ID: 9, Name: "Beta", Role: "agent"},
+	}
+
+	if err := verifyAccountAccess(&sdk.ProfileResponse{Accounts: accounts}, 9); err != nil {
+		t.Fatalf("expected access to a member account, got error: %v", err)
+	}
+
+	err := verifyAccountAccess(&sdk.ProfileResponse{Accounts: accounts}, 42)
+	if err == nil {
+		t.Fatal("expected error for non-member account, got nil")
+	}
+	// The message should name the accessible accounts so the user can correct the ID.
+	for _, want := range []string{"42", "7 (Acme)", "9 (Beta)"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q missing %q", err.Error(), want)
+		}
+	}
+
+	// No accounts in payload (older instances) → skip rather than block login.
+	if err := verifyAccountAccess(&sdk.ProfileResponse{}, 42); err != nil {
+		t.Fatalf("expected skip when no accounts present, got error: %v", err)
 	}
 }
 
@@ -244,4 +274,109 @@ func TestAuthStatusDoesNotCacheUserIDFromEnvironmentToken(t *testing.T) {
 	if post.UserID != 42 {
 		t.Fatalf("expected env-token auth status to preserve cached UserID=42, got %d", post.UserID)
 	}
+}
+
+// TestAuthLoginVerifiesAccountAccess drives the full `auth login` flow (stdin →
+// profile fetch → membership check → persist) to cover the wiring, not just the
+// verifyAccountAccess helper.
+func TestAuthLoginVerifiesAccountAccess(t *testing.T) {
+	profileBody := `{"id":5,"name":"Eve","email":"eve@example.com","availability_status":"online","role":"agent",` +
+		`"accounts":[{"id":7,"name":"Acme","role":"administrator"},{"id":9,"name":"Beta","role":"agent"}]}`
+
+	t.Run("rejects an account the token cannot access", func(t *testing.T) {
+		server := loginProfileServer(t, profileBody)
+		defer server.Close()
+		isolateAuthEnv(t)
+
+		err := runLogin(t, server.URL+"\ntoken\n42\n")
+		if err == nil {
+			t.Fatal("expected login to fail for an inaccessible account")
+		}
+		for _, want := range []string{"42", "Acme", "Beta"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Fatalf("error %q should name entered + accessible accounts", err.Error())
+			}
+		}
+		// Nothing must be persisted when login is rejected.
+		if cfg, _ := config.Load(); cfg != nil {
+			t.Fatalf("config was saved despite a rejected login: %#v", cfg)
+		}
+	})
+
+	t.Run("accepts a member account and persists config + key", func(t *testing.T) {
+		server := loginProfileServer(t, profileBody)
+		defer server.Close()
+		isolateAuthEnv(t)
+
+		if err := runLogin(t, server.URL+"\ntoken\n7\n"); err != nil {
+			t.Fatalf("login: %v", err)
+		}
+
+		cfg, err := config.Load()
+		if err != nil || cfg == nil {
+			t.Fatalf("config not saved: cfg=%#v err=%v", cfg, err)
+		}
+		if cfg.AccountID != 7 || cfg.UserID != 5 {
+			t.Fatalf("saved cfg = %#v, want AccountID 7, UserID 5", cfg)
+		}
+		apiKey, source, err := config.ResolveAPIKey(cfg)
+		if err != nil || apiKey != "token" || source != config.CredentialSourceKeyring {
+			t.Fatalf("ResolveAPIKey = (%q, %v, %v), want token/keyring", apiKey, source, err)
+		}
+	})
+}
+
+// isolateAuthEnv gives a test its own HOME + mocked keyring and clears the
+// CHATWOOT_API_KEY override so credential resolution exercises the keyring path.
+func isolateAuthEnv(t *testing.T) {
+	t.Helper()
+	keyring.MockInit()
+	if err := keyring.DeleteAll("chatwoot-cli"); err != nil {
+		t.Fatalf("keyring.DeleteAll: %v", err)
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(config.APIKeyEnv, "")
+}
+
+func loginProfileServer(t *testing.T, body string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/profile" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+}
+
+// runLogin feeds scripted answers to the interactive login prompts via os.Stdin
+// and silences the prompt/banner output, returning the command's error.
+func runLogin(t *testing.T, stdin string) error {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	if _, err := io.WriteString(w, stdin); err != nil {
+		t.Fatalf("write stdin: %v", err)
+	}
+	_ = w.Close()
+
+	devnull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("open devnull: %v", err)
+	}
+
+	oldStdin, oldStdout := os.Stdin, os.Stdout
+	os.Stdin, os.Stdout = r, devnull
+	defer func() {
+		os.Stdin, os.Stdout = oldStdin, oldStdout
+		_ = r.Close()
+		_ = devnull.Close()
+	}()
+
+	printer := output.NewPrinter("text", false, false)
+	return (&AuthLoginCmd{}).Run(&App{Printer: printer})
 }

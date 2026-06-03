@@ -63,6 +63,13 @@ func (c *AuthLoginCmd) Run(app *App) error {
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
+
+	// The token is valid, but that doesn't mean it can access the account ID the
+	// user typed. Verify membership now so a typo/wrong account fails here with a
+	// clear message instead of as a cryptic 404 on the first account-scoped call.
+	if err := verifyAccountAccess(profile, cfg.AccountID); err != nil {
+		return err
+	}
 	cfg.UserID = profile.ID
 
 	if err := config.SaveAPIKey(cfg, apiKey); err != nil {
@@ -80,6 +87,37 @@ func (c *AuthLoginCmd) Run(app *App) error {
 
 func loginSuccessMessage(name, email string) string {
 	return fmt.Sprintf("Logged in as %s (%s)\n", output.SanitizeText(name), output.SanitizeText(email))
+}
+
+// verifyAccountAccess fails login when the entered account ID is not one the
+// authenticated user belongs to. The profile payload's accounts array is the
+// source of truth. If the instance returns no accounts (older Chatwoot, or a
+// token type that omits them), the check is skipped rather than block login.
+func verifyAccountAccess(profile *sdk.ProfileResponse, accountID int) error {
+	if len(profile.Accounts) == 0 {
+		return nil
+	}
+	for _, acc := range profile.Accounts {
+		if acc.ID == accountID {
+			return nil
+		}
+	}
+	return fmt.Errorf("account %d is not accessible with this API key; %s", accountID, accessibleAccountsHint(profile.Accounts))
+}
+
+func accessibleAccountsHint(accounts []sdk.ProfileAccount) string {
+	parts := make([]string, 0, len(accounts))
+	for _, acc := range accounts {
+		if name := output.SanitizeText(acc.Name); name != "" {
+			parts = append(parts, fmt.Sprintf("%d (%s)", acc.ID, name))
+		} else {
+			parts = append(parts, strconv.Itoa(acc.ID))
+		}
+	}
+	if len(parts) == 1 {
+		return "this key can access account " + parts[0]
+	}
+	return "this key can access accounts: " + strings.Join(parts, ", ")
 }
 
 func readAPIKey(reader *bufio.Reader) (string, error) {
