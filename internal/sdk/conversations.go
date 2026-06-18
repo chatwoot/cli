@@ -53,6 +53,8 @@ type Agent struct {
 	Email              string `json:"email"`
 	Thumbnail          string `json:"thumbnail"`
 	AvailabilityStatus string `json:"availability_status"`
+	Role               string `json:"role,omitempty"`
+	AvailableName      string `json:"available_name,omitempty"`
 }
 
 type Team struct {
@@ -61,8 +63,10 @@ type Team struct {
 }
 
 type Inbox struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	ChannelType string `json:"channel_type,omitempty"`
+	ChannelID   int    `json:"channel_id,omitempty"`
 }
 
 type ConversationsListResponse struct {

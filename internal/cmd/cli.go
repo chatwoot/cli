@@ -27,6 +27,9 @@ type CLI struct {
 	Teams       TeamsCmd    `cmd:"" help:"List teams."`
 	HelpCenters HCsCmd      `cmd:"" name:"hcs" aliases:"help-centers" help:"List help centers."`
 
+	// Global search across all buckets.
+	Search SearchCmd `cmd:"" help:"Global search across conversations, contacts, messages, and help-center articles."`
+
 	// Singulars — context for verbs and subresources.
 	Conv       ConvCmd    `cmd:"" aliases:"conversation" help:"View or act on a conversation."`
 	Contact    ContactCmd `cmd:"" help:"View a contact."`
