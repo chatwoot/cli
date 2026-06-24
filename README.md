@@ -20,6 +20,20 @@ chatwoot auth login
 
 You'll be prompted for your **Base URL**, **API Key**, and **Account ID**. Credentials are validated before saving. Non-secret config lives at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI or headless environments, set `CHATWOOT_API_KEY` to override the keyring.
 
+### Profiles
+
+Work across more than one Chatwoot — separate staging and production, or several accounts — by saving each as a named profile:
+
+```bash
+chatwoot auth login --profile staging   # save a second instance
+chatwoot profiles                        # list saved profiles (the default is marked *)
+chatwoot profile staging use             # make it the default
+chatwoot --profile staging convs         # one-off override for a single command
+chatwoot profile staging remove          # delete a profile and its stored token
+```
+
+Each profile keeps its own API key in the keyring. Resolution order is `--profile` flag → `CHATWOOT_PROFILE` env → the configured default → `default`. An existing single-instance config is migrated into the `default` profile automatically on first run.
+
 ## Agent Skill
 
 If you use Claude Code, Cursor, or another AI coding assistant, install the agent skill so it knows the CLI's grammar and safety rules before sending customer-visible replies:

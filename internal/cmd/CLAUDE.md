@@ -70,19 +70,28 @@ Inbox configuration.
 - Output: table or JSON
 
 ### profile.go
-Authenticated user profile.
-- `profile show` — current user details
-- Output: formatted text or JSON
+Named-profile management (multiple saved instances/accounts). Pure-local — no
+API client needed, so these are `skipAuth` commands.
+- `profiles` — list saved profiles, marking the default.
+- `profile <name>` — show a profile (default subcommand).
+- `profile <name> use` — set the default profile.
+- `profile <name> remove` — delete a profile and its stored token.
+- The id-first form (`profile <name> use`) is rewritten to Kong's verb-first
+  form in `cmd/chatwoot/main.go`; profile is a string-id noun there.
+
+(The *authenticated user's* profile is shown by `me` / `whoami`, i.e.
+`auth status`.)
 
 ## App Struct
 
 Passed to every command:
 ```go
 type App struct {
-    Client   *sdk.Client
-    Printer  *output.Printer
-    Config   *config.Config
-    Version  string
+    Client      *sdk.Client
+    Printer     *output.Printer
+    Config      *config.Config
+    ProfileName string // resolved active profile (--profile → env → default → "default")
+    Version     string
 }
 ```
 
@@ -90,6 +99,8 @@ Commands use:
 - `app.Client` for API calls
 - `app.Printer.Print()` to render output (respects --format flag)
 - `app.Config` for cached values (base URL, account ID, etc.)
+- `app.ProfileName` for the active profile when reading/writing config
+  (`config.LoadProfile`/`SaveProfile`/`ResolveAPIKeyFor`)
 
 ## Output Formatting
 

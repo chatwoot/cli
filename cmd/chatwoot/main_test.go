@@ -69,6 +69,42 @@ func TestRewriteIDFirstGrammar(t *testing.T) {
 			want: []string{"conv", "abc", "reply"},
 		},
 		{
+			// profile is a string-id noun: a non-numeric name is rewritten.
+			name: "profile name verb -> profile verb name",
+			in:   []string{"profile", "work", "use"},
+			want: []string{"profile", "use", "work"},
+		},
+		{
+			name: "profile name remove -> profile remove name",
+			in:   []string{"profile", "personal", "remove"},
+			want: []string{"profile", "remove", "personal"},
+		},
+		{
+			// Verb-first profile input is left alone (the verb check guards it).
+			name: "profile verb-first passes through",
+			in:   []string{"profile", "use", "work"},
+			want: []string{"profile", "use", "work"},
+		},
+		{
+			name: "profile unknown verb passes through",
+			in:   []string{"profile", "work", "explode"},
+			want: []string{"profile", "work", "explode"},
+		},
+		{
+			// A verb in the id slot is already verb-first, even when the profile
+			// name collides with a verb (showing a profile literally named "use").
+			name: "profile verb in id slot is not rewritten",
+			in:   []string{"profile", "show", "use"},
+			want: []string{"profile", "show", "use"},
+		},
+		{
+			// `profile work` (no verb) is too short to rewrite; Kong's default
+			// subcommand routes it to `profile show work`.
+			name: "profile name only passes through",
+			in:   []string{"profile", "work"},
+			want: []string{"profile", "work"},
+		},
+		{
 			name: "too few args passes through",
 			in:   []string{"conv", "123"},
 			want: []string{"conv", "123"},

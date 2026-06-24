@@ -445,7 +445,7 @@ func resolveAgent(app *App, ref string) (int, error) {
 		}
 		if app.Config != nil {
 			app.Config.UserID = profile.ID
-			_ = config.Save(app.Config)
+			_ = config.SaveProfile(app.ProfileName, app.Config)
 		}
 		return profile.ID, nil
 	}

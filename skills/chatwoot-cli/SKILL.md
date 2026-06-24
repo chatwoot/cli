@@ -132,7 +132,11 @@ chatwoot convs --help         # filters for the list command
 | `api <path>`                      | Call an arbitrary Chatwoot API endpoint with saved auth headers |
 | `auth login` / `logout`          | Interactive login / remove credentials            |
 | `config path` / `config view`    | Inspect config file location and contents         |
+| `profiles` / `profile <name>`    | List saved profiles / show one                    |
+| `profile <name> use` / `remove`  | Set the default profile / delete one              |
 | `completion <shell>`             | Print shell-completion script                     |
+
+Use `--profile <name>` (or `CHATWOOT_PROFILE`) to target a saved instance/account for any command, e.g. `chatwoot --profile staging convs`. Resolution order: flag → env → default profile → `default`.
 
 ## Common Mistakes
 
@@ -174,7 +178,12 @@ Customer- or team-visible (effectively irreversible):
 Read-only and safe to run freely:
 `convs`, `conv <id>` (view), `conv <id> messages`, `conv <id> contact`, `contacts`, `contact <id>`,
 `inboxes`, `inbox <id>`, `agents`, `labels`, `teams`, `me`, `whoami`,
-`auth status`, `config path`, `config view`, `api <path>` when it is a GET.
+`auth status`, `config path`, `config view`, `profiles`, `profile <id>` (view),
+`api <path>` when it is a GET.
+
+`profile <name> use` and `profile <name> remove` change only local CLI config
+(the default selection and stored tokens) — not customer-visible, but `remove`
+deletes a saved login, so confirm before running it.
 
 ## Common Patterns
 

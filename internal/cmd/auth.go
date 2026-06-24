@@ -72,16 +72,21 @@ func (c *AuthLoginCmd) Run(app *App) error {
 	}
 	cfg.UserID = profile.ID
 
-	if err := config.SaveAPIKey(cfg, apiKey); err != nil {
+	profileName := config.ResolveActiveName(app.ProfileName)
+
+	if err := config.SaveAPIKeyFor(profileName, cfg, apiKey); err != nil {
 		return err
 	}
 
-	if err := config.Save(cfg); err != nil {
-		_ = config.DeleteAPIKey(cfg)
+	if err := config.SaveProfile(profileName, cfg); err != nil {
+		_ = config.DeleteAPIKeyFor(profileName)
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
 	fmt.Print(loginSuccessMessage(profile.Name, profile.Email))
+	if profileName != config.DefaultProfileName {
+		fmt.Printf("Saved as profile %q.\n", profileName)
+	}
 	return nil
 }
 
@@ -143,32 +148,37 @@ func readAPIKey(reader *bufio.Reader) (string, error) {
 type AuthLogoutCmd struct{}
 
 func (c *AuthLogoutCmd) Run(app *App) error {
-	cfg, err := config.Load()
+	profileName := config.ResolveActiveName(app.ProfileName)
+
+	// Always clear the keyring entry first, even if no config file exists, so a
+	// stale token can't linger after logout.
+	if err := config.DeleteAPIKeyFor(profileName); err != nil {
+		return err
+	}
+
+	store, err := config.LoadStore()
 	if err != nil {
 		return err
 	}
+	removed := store.Remove(profileName)
 
-	path, err := config.ConfigPath()
-	if err != nil {
-		return err
-	}
-
-	if err := config.DeleteAPIKey(cfg); err != nil {
-		return err
-	}
-
-	if err := os.Remove(path); err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("Not logged in.")
-			if strings.TrimSpace(os.Getenv(config.APIKeyEnv)) != "" {
-				fmt.Printf("%s is set in your environment; logout cannot remove environment-provided credentials.\n", config.APIKeyEnv)
-			}
-			return nil
+	if store.IsEmpty() {
+		path, perr := config.ConfigPath()
+		if perr != nil {
+			return perr
 		}
-		return fmt.Errorf("failed to remove config: %w", err)
+		if rerr := os.Remove(path); rerr != nil && !os.IsNotExist(rerr) {
+			return fmt.Errorf("failed to remove config: %w", rerr)
+		}
+	} else if err := store.Save(); err != nil {
+		return err
 	}
 
-	fmt.Println("Logged out successfully.")
+	if removed {
+		fmt.Printf("Logged out of profile %q.\n", profileName)
+	} else {
+		fmt.Println("Not logged in.")
+	}
 	if strings.TrimSpace(os.Getenv(config.APIKeyEnv)) != "" {
 		fmt.Printf("%s is set in your environment; logout cannot remove environment-provided credentials.\n", config.APIKeyEnv)
 	}
@@ -183,7 +193,8 @@ func (c *AuthStatusCmd) Run(app *App) error { return runAuthStatus(app) }
 // `whoami`. They all answer "who am I and where am I logged in?" so they
 // share output. It also opportunistically refreshes the cached UserID.
 func runAuthStatus(app *App) error {
-	cfg, err := config.Load()
+	name := config.ResolveActiveName(app.ProfileName)
+	cfg, err := config.LoadProfile(name)
 	if err != nil {
 		return err
 	}
@@ -193,7 +204,7 @@ func runAuthStatus(app *App) error {
 		return err
 	}
 
-	apiKey, source, err := config.ResolveAPIKey(cfg)
+	apiKey, source, err := config.ResolveAPIKeyFor(name, cfg)
 	if err != nil {
 		return fmt.Errorf("not authenticated: %w", err)
 	}
@@ -208,10 +219,11 @@ func runAuthStatus(app *App) error {
 	// temporary overrides and must not rewrite the persisted login identity.
 	if source == config.CredentialSourceKeyring && cfg.UserID != profile.ID {
 		cfg.UserID = profile.ID
-		_ = config.Save(cfg)
+		_ = config.SaveProfile(name, cfg)
 	}
 
 	app.Printer.PrintDetail([]output.KeyValue{
+		{Key: "Profile", Value: name},
 		{Key: "Instance", Value: cfg.BaseURL},
 		{Key: "Account", Value: strconv.Itoa(cfg.AccountID)},
 		{Key: "User ID", Value: strconv.Itoa(profile.ID)},

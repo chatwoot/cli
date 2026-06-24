@@ -1,24 +1,38 @@
 # internal/config - Configuration Management
 
-YAML-based configuration persistence for non-secret account settings. Configuration is stored in `~/.chatwoot/config.yaml` and auto-loaded on startup. API keys are resolved from `CHATWOOT_API_KEY` first, then the OS keyring.
+YAML-based configuration persistence for non-secret account settings. The
+config document holds one or more **named profiles** (each a Chatwoot
+instance + account) plus a default selection, stored in `~/.chatwoot/config.yaml`
+and auto-loaded on startup. API keys are resolved from `CHATWOOT_API_KEY` first,
+then the active profile's OS keyring entry.
 
 ## Files
 
 ### config.go
-Configuration struct and file I/O. Provides:
-- `Config` struct with BaseURL and AccountID
-- `Load()` — read from `~/.chatwoot/config.yaml`, create if missing
-- `Save()` — write non-secret YAML
-- Validation: ensures BaseURL and AccountID are set before API calls
-- Error handling: distinguishes between missing file and parse errors
+Profile-aware config struct and file I/O. Provides:
+- `Config` — one profile's non-secret settings (BaseURL, AccountID, UserID, HelpCenter).
+- `Store` — the on-disk document: `default_profile` + a `profiles` map.
+- `LoadStore()` / `(*Store).Save()` — read/write the document; a legacy flat
+  (pre-profiles) config is migrated into the `default` profile on load.
+- `(*Store).ActiveName(override)` — resolve the active profile: override (flag)
+  → `CHATWOOT_PROFILE` → `default_profile` → `"default"`.
+- `(*Store).Get/Set/Remove/Names/IsEmpty` — profile management. `Remove` promotes
+  another profile to default if the removed one was the default.
+- `ResolveActiveName/LoadProfile/SaveProfile` — package-level helpers for callers
+  that hold only a profile-override string (the command layer).
+- `Load()` / `Save()` — compatibility shims that operate on the active profile.
 
 ### credentials.go
-Credential resolution and OS keyring storage. Provides:
-- `ResolveAPIKey()` — `CHATWOOT_API_KEY` first, then OS keyring
-- `SaveAPIKey()` — write validated login token to keyring
-- `DeleteAPIKey()` — remove saved keyring token on logout
+Per-profile credential resolution and OS keyring storage. Provides:
+- `ResolveAPIKeyFor(profile, cfg)` — `CHATWOOT_API_KEY` first, then the profile's
+  keyring entry. The `default` profile keeps the historical `api-key` entry (and
+  migrates older URL/account-scoped entries forward), so pre-profiles logins
+  resolve unchanged; named profiles use a `profile:<name>` entry.
+- `SaveAPIKeyFor(profile, cfg, key)` / `DeleteAPIKeyFor(profile)` — per-profile.
+- `ResolveAPIKey/SaveAPIKey` — shims for the active profile.
+- `DeleteAPIKey` — wipes every entry under this build's keyring service (full reset).
 
-## Build Profiles (dev vs prod)
+## Build Profiles (dev vs prod) — distinct from named profiles
 
 `configFileName` and `keyringService` are selected at build time via the `dev`
 build tag (`profile_prod.go` for `//go:build !dev`, `profile_dev.go` for
@@ -30,34 +44,32 @@ build tag (`profile_prod.go` for `//go:build !dev`, `profile_dev.go` for
 | dev (`go build -tags dev`, `mise run dev`) | `~/.chatwoot/config.dev.yaml` | `chatwoot-cli-dev` | `true` |
 
 A dev build keeps its own credentials, so iterating on the CLI never reads or
-clobbers the production login. The keyring **service** (not just the entry name)
-is namespaced per profile, so `auth logout` — which does
-`keyring.DeleteAll(keyringService)` to clear stale entries — only wipes the
-active build's tokens and never the other profile's. Release builds (goreleaser
-passes no tags) exclude `profile_dev.go` entirely — the dev path is compiled
-out. `config view` shows a `Profile: dev` line on dev builds.
+clobbers the production login. The two concepts compose cleanly: the **build
+profile** selects the config *file* and keyring *service*; **named profiles**
+select an entry *within* them. `config view` shows a `Build: dev` line on dev
+builds (the `Profile:` line now reports the active named profile).
 
 ## Config Schema
 
 ```yaml
-base_url: https://staging.chatwoot.com
-account_id: 47
+default_profile: work
+profiles:
+  work:
+    base_url: https://app.chatwoot.com
+    account_id: 47
+  staging:
+    base_url: https://staging.chatwoot.com
+    account_id: 3
 ```
 
 ## Usage
 
-In `main.go`:
+Command layer (the `--profile` flag is resolved into `App.ProfileName`):
 ```go
-cfg, err := config.Load()
-if err != nil {
-    // Handle missing/invalid config
-}
-
-apiKey, _, err := config.ResolveAPIKey(cfg)
-if err != nil {
-    // Handle missing credentials
-}
-
+store, _ := config.LoadStore()
+name := store.ActiveName(cli.Profile)
+cfg := store.Get(name)                       // nil if not configured
+apiKey, _, err := config.ResolveAPIKeyFor(name, cfg)
 client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
 ```
 
@@ -68,9 +80,5 @@ client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
 
 ## File Permissions
 
-Config directory is created with `0700`; config file is created with `0600`. API keys are not written to YAML.
-
-## TODO
-
-- Implement config migration for schema changes
-- Add profile support (multiple saved credentials)
+Config directory is created with `0700`; the config file is written atomically
+(temp file + rename) with `0600`. API keys are never written to YAML.

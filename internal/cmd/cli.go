@@ -13,6 +13,7 @@ import (
 //   - `conv 123` is shorthand for `conv view 123` (default subcommand).
 type CLI struct {
 	Output  string `short:"o" default:"text" enum:"text,json,csv" help:"Output format."`
+	Profile string `help:"Use a named profile (overrides the configured default)."`
 	Account int    `short:"a" help:"Override account ID."`
 	Quiet   bool   `short:"q" help:"Print only IDs."`
 	NoColor bool   `help:"Disable colored output."`
@@ -39,8 +40,10 @@ type CLI struct {
 	Api    ApiCmd    `cmd:"" help:"Make an HTTP request to the Chatwoot API."`
 
 	// Setup.
-	Auth   AuthCmd   `cmd:"" help:"Login, logout, and status."`
-	Config ConfigCmd `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
+	Auth       AuthCmd     `cmd:"" help:"Login, logout, and status."`
+	Config     ConfigCmd   `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
+	Profiles   ProfilesCmd `cmd:"" help:"List saved profiles."`
+	ProfileCmd ProfileCmd  `cmd:"" name:"profile" help:"Show, switch, or remove a profile."`
 
 	Completion kongcompletion.Completion `cmd:"" help:"Print shell completion setup."`
 	Version    VersionCmd                `cmd:"" help:"Print the CLI version."`

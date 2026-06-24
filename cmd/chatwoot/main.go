@@ -23,15 +23,23 @@ var (
 	convVerbs    = []string{"view", "messages", "reply", "resolve", "open", "pending", "snooze", "assign", "unassign", "label", "priority", "contact"}
 	contactVerbs = []string{"view", "conversations"}
 	inboxVerbs   = []string{"view"}
+	profileVerbs = []string{"show", "use", "remove"}
 
 	contextNouns = map[string][]string{
 		"conv":         convVerbs,
 		"conversation": convVerbs,
 		"contact":      contactVerbs,
 		"inbox":        inboxVerbs,
+		"profile":      profileVerbs,
 	}
 
-	helpVerbSwap = regexp.MustCompile(`\b(view|messages|reply|resolve|open|pending|snooze|assign|unassign|label|priority|contact|conversations)\s+<id>`)
+	// stringIDNouns have a free-form identifier (e.g. a profile name) rather than
+	// a numeric id, so the id-first rewrite must not require a number for them.
+	stringIDNouns = map[string]bool{
+		"profile": true,
+	}
+
+	helpVerbSwap = regexp.MustCompile(`\b(view|messages|reply|resolve|open|pending|snooze|assign|unassign|label|priority|contact|conversations|show|use|remove)\s+<(id|name)>`)
 )
 
 func main() {
@@ -63,6 +71,7 @@ func main() {
 	skipAuth := strings.HasPrefix(cmdStr, "auth") ||
 		strings.HasPrefix(cmdStr, "config") ||
 		strings.HasPrefix(cmdStr, "completion") ||
+		strings.HasPrefix(cmdStr, "profile") || // profile + profiles manage local config only
 		cmdStr == "me" ||
 		cmdStr == "whoami" ||
 		cmdStr == "version"
@@ -94,7 +103,18 @@ func rewriteIDFirstGrammar(args []string) []string {
 	if !ok || i+2 >= len(args) {
 		return args
 	}
-	if _, err := strconv.Atoi(args[i+1]); err != nil {
+	id := args[i+1]
+	if strings.HasPrefix(id, "-") {
+		return args
+	}
+	if stringIDNouns[args[i]] {
+		// A verb in the id slot means the input is already verb-first (e.g.
+		// `profile show use`, showing a profile named "use"); don't rewrite it.
+		if slices.Contains(verbs, id) {
+			return args
+		}
+	} else if _, err := strconv.Atoi(id); err != nil {
+		// Numeric-id nouns (conversations, contacts, …) require a number there.
 		return args
 	}
 	if !slices.Contains(verbs, args[i+2]) {

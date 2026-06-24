@@ -139,6 +139,67 @@ func TestResolveAPIKeyMigratesLegacyKeyringToken(t *testing.T) {
 	}
 }
 
+func TestNamedProfilesUseDistinctKeyringEntries(t *testing.T) {
+	initMockKeyring(t)
+
+	work := &Config{BaseURL: "https://work.example", AccountID: 1}
+	personal := &Config{BaseURL: "https://personal.example", AccountID: 2}
+	if err := SaveAPIKeyFor("work", work, "work-token"); err != nil {
+		t.Fatalf("SaveAPIKeyFor(work) error = %v", err)
+	}
+	if err := SaveAPIKeyFor("personal", personal, "personal-token"); err != nil {
+		t.Fatalf("SaveAPIKeyFor(personal) error = %v", err)
+	}
+
+	// The default profile keeps the historical "api-key" entry; named profiles
+	// are namespaced, so neither collides.
+	if entry := keyringEntry(DefaultProfileName); entry != apiKeyKeyringEntry {
+		t.Fatalf("default entry = %q, want %q", entry, apiKeyKeyringEntry)
+	}
+	if entry := keyringEntry("work"); entry == apiKeyKeyringEntry {
+		t.Fatalf("named profile entry must differ from the default entry, got %q", entry)
+	}
+
+	wk, src, err := ResolveAPIKeyFor("work", work)
+	if err != nil || wk != "work-token" || src != CredentialSourceKeyring {
+		t.Fatalf("ResolveAPIKeyFor(work) = (%q, %v, %v), want work-token/keyring", wk, src, err)
+	}
+	pk, _, err := ResolveAPIKeyFor("personal", personal)
+	if err != nil || pk != "personal-token" {
+		t.Fatalf("ResolveAPIKeyFor(personal) = (%q, %v), want personal-token", pk, err)
+	}
+
+	// Removing one profile's token must leave the other intact.
+	if err := DeleteAPIKeyFor("work"); err != nil {
+		t.Fatalf("DeleteAPIKeyFor(work) error = %v", err)
+	}
+	if _, _, err := ResolveAPIKeyFor("work", work); !errors.Is(err, ErrAPIKeyNotFound) {
+		t.Fatalf("work token should be gone, err = %v", err)
+	}
+	if pk, _, err := ResolveAPIKeyFor("personal", personal); err != nil || pk != "personal-token" {
+		t.Fatalf("personal token should survive work logout, got (%q, %v)", pk, err)
+	}
+}
+
+func TestDefaultProfileMapsToLegacyEntry(t *testing.T) {
+	initMockKeyring(t)
+	cfg := &Config{BaseURL: "https://app.chatwoot.com", AccountID: 9}
+
+	// Saving the default profile must write the legacy "api-key" entry so that
+	// pre-profiles single-instance logins keep resolving.
+	if err := SaveAPIKeyFor(DefaultProfileName, cfg, "default-token"); err != nil {
+		t.Fatalf("SaveAPIKeyFor(default) error = %v", err)
+	}
+	if _, err := keyring.Get(keyringService, apiKeyKeyringEntry); err != nil {
+		t.Fatalf("default profile token not stored at legacy entry: %v", err)
+	}
+	// An empty profile name resolves to the default too.
+	key, src, err := ResolveAPIKeyFor("", cfg)
+	if err != nil || key != "default-token" || src != CredentialSourceKeyring {
+		t.Fatalf("ResolveAPIKeyFor(\"\") = (%q, %v, %v), want default-token/keyring", key, src, err)
+	}
+}
+
 func TestResolveAPIKeyMissing(t *testing.T) {
 	initMockKeyring(t)
 	cfg := &Config{BaseURL: "https://app.chatwoot.com", AccountID: 125}

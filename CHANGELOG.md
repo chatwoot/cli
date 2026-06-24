@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Multi-profile support: save and switch between multiple Chatwoot instances/accounts. A global `--profile` flag, the `CHATWOOT_PROFILE` env var, and a `profiles` / `profile <name> show|use|remove` command tree manage named profiles, each with its own keyring-stored token. `auth login --profile <name>` saves into a named profile; resolution order is flag → env → configured default → `default`.
+
 ### Changed
+
+- `~/.chatwoot/config.yaml` now stores a `profiles` map with a `default_profile`. Existing single-instance configs are migrated into the `default` profile automatically on first load, and that profile keeps its historical keyring entry, so upgrades need no re-login.
+- `auth logout` now signs out of the active profile (removing only its token) instead of wiping all credentials; `config view` and `auth status` report the active profile name.
 
 ### Fixed
 

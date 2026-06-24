@@ -27,7 +27,8 @@ func (c *ConfigPathCmd) Run(app *App) error {
 type ConfigViewCmd struct{}
 
 func (c *ConfigViewCmd) Run(app *App) error {
-	cfg, err := config.Load()
+	name := config.ResolveActiveName(app.ProfileName)
+	cfg, err := config.LoadProfile(name)
 	if err != nil {
 		return err
 	}
@@ -37,23 +38,22 @@ func (c *ConfigViewCmd) Run(app *App) error {
 		return nil
 	}
 
-	credential := credentialStatus(cfg)
-
 	detail := []output.KeyValue{
+		{Key: "Profile", Value: name},
 		{Key: "Base URL", Value: cfg.BaseURL},
 		{Key: "Account ID", Value: fmt.Sprintf("%d", cfg.AccountID)},
-		{Key: "Credential", Value: credential},
+		{Key: "Credential", Value: credentialStatus(name, cfg)},
 	}
 	if config.IsDev {
-		detail = append(detail, output.KeyValue{Key: "Profile", Value: "dev"})
+		detail = append(detail, output.KeyValue{Key: "Build", Value: "dev"})
 	}
 	app.Printer.PrintDetail(detail)
 
 	return nil
 }
 
-func credentialStatus(cfg *config.Config) string {
-	_, source, err := config.ResolveAPIKey(cfg)
+func credentialStatus(profile string, cfg *config.Config) string {
+	_, source, err := config.ResolveAPIKeyFor(profile, cfg)
 	if err == nil {
 		return string(source)
 	}

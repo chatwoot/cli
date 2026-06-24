@@ -65,7 +65,7 @@ func (c *HCDefaultCmd) Run(app *App) error {
 			return fmt.Errorf("config is not loaded")
 		}
 		app.Config.HelpCenter = config.HelpCenterConfig{}
-		if err := config.Save(app.Config); err != nil {
+		if err := config.SaveProfile(app.ProfileName, app.Config); err != nil {
 			return err
 		}
 		_, _ = fmt.Fprintln(app.Printer.Writer, "Cleared default help center.")
@@ -88,7 +88,7 @@ func (c *HCDefaultCmd) Run(app *App) error {
 		DefaultPortalSlug: portal.Slug,
 		DefaultLocale:     portalDefaultLocale(portal),
 	}
-	if err := config.Save(app.Config); err != nil {
+	if err := config.SaveProfile(app.ProfileName, app.Config); err != nil {
 		return err
 	}
 
