@@ -337,3 +337,8 @@ func (c *Client) Profile() *ProfileService {
 func (c *Client) HelpCenter() *HelpCenterService {
 	return &HelpCenterService{client: c}
 }
+
+// Search returns the search service
+func (c *Client) Search() *SearchService {
+	return &SearchService{client: c}
+}

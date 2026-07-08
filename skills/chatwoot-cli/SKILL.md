@@ -122,6 +122,7 @@ chatwoot convs --help         # filters for the list command
 | `conv <id> contact`              | View the contact (sender) for the conversation    |
 | `contacts`                       | List/search contacts                              |
 | `contact <id>` / `<id> conversations` | View a contact / list their conversations    |
+| `search <q> [--only X]`          | Global search across conversations, contacts, messages, articles (`--only` restricts to one bucket) |
 | `inboxes` / `inbox <id>`         | List inboxes / view one                           |
 | `agents` / `labels` / `teams`    | List account-level resources                      |
 | `hcs`                            | List help centers                                 |
@@ -172,7 +173,7 @@ Customer- or team-visible (effectively irreversible):
   affected, then confirm.
 
 Read-only and safe to run freely:
-`convs`, `conv <id>` (view), `conv <id> messages`, `conv <id> contact`, `contacts`, `contact <id>`,
+`convs`, `conv <id>` (view), `conv <id> messages`, `conv <id> contact`, `contacts`, `contact <id>`, `search <q>`,
 `inboxes`, `inbox <id>`, `agents`, `labels`, `teams`, `me`, `whoami`,
 `auth status`, `config path`, `config view`, `api <path>` when it is a GET.
 
