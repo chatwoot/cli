@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/chatwoot/cli/internal/config"
+	"github.com/chatwoot/cli/internal/lock"
 	"github.com/chatwoot/cli/internal/output"
 	"github.com/chatwoot/cli/internal/sdk"
 )
@@ -184,6 +186,25 @@ func (c *ConvMessagesCmd) Run(app *App) error {
 	return nil
 }
 
+// -- per-conversation lock ----------------------------------------------------
+
+// withConvLock runs fn while holding the per-conversation lock, so concurrent
+// chatwoot processes can't mutate the same conversation at once. If another
+// process holds the lock, it fails fast instead of waiting: a queued duplicate
+// would still fire after the holder finishes, which is exactly what the lock
+// exists to prevent.
+func withConvLock(id int, fn func() error) error {
+	lk, err := lock.AcquireConversation(id)
+	if err != nil {
+		if errors.Is(err, lock.ErrLocked) {
+			return fmt.Errorf("conversation %d: another chatwoot command is already running on this conversation; try again in a moment", id)
+		}
+		return err
+	}
+	defer lk.Release()
+	return fn()
+}
+
 // -- reply --------------------------------------------------------------------
 
 type ConvReplyCmd struct {
@@ -193,20 +214,22 @@ type ConvReplyCmd struct {
 }
 
 func (c *ConvReplyCmd) Run(app *App) error {
-	msg, err := app.Client.Messages(c.ID).Create(c.Text, c.Private)
-	if err != nil {
-		return err
-	}
-	if app.Printer.Quiet {
-		fmt.Println(msg.ID)
+	return withConvLock(c.ID, func() error {
+		msg, err := app.Client.Messages(c.ID).Create(c.Text, c.Private)
+		if err != nil {
+			return err
+		}
+		if app.Printer.Quiet {
+			fmt.Println(msg.ID)
+			return nil
+		}
+		kind := "reply"
+		if c.Private {
+			kind = "note"
+		}
+		fmt.Printf("Sent %s on conversation %d (message %d).\n", kind, c.ID, msg.ID)
 		return nil
-	}
-	kind := "reply"
-	if c.Private {
-		kind = "note"
-	}
-	fmt.Printf("Sent %s on conversation %d (message %d).\n", kind, c.ID, msg.ID)
-	return nil
+	})
 }
 
 // -- status verbs: resolve / open / pending / snooze --------------------------
@@ -216,7 +239,9 @@ type ConvResolveCmd struct {
 }
 
 func (c *ConvResolveCmd) Run(app *App) error {
-	return setStatus(app, c.ID, "resolved", nil)
+	return withConvLock(c.ID, func() error {
+		return setStatus(app, c.ID, "resolved", nil)
+	})
 }
 
 type ConvOpenCmd struct {
@@ -224,7 +249,9 @@ type ConvOpenCmd struct {
 }
 
 func (c *ConvOpenCmd) Run(app *App) error {
-	return setStatus(app, c.ID, "open", nil)
+	return withConvLock(c.ID, func() error {
+		return setStatus(app, c.ID, "open", nil)
+	})
 }
 
 type ConvPendingCmd struct {
@@ -232,7 +259,9 @@ type ConvPendingCmd struct {
 }
 
 func (c *ConvPendingCmd) Run(app *App) error {
-	return setStatus(app, c.ID, "pending", nil)
+	return withConvLock(c.ID, func() error {
+		return setStatus(app, c.ID, "pending", nil)
+	})
 }
 
 type ConvSnoozeCmd struct {
@@ -249,7 +278,9 @@ func (c *ConvSnoozeCmd) Run(app *App) error {
 		}
 		until = &ts
 	}
-	return setStatus(app, c.ID, "snoozed", until)
+	return withConvLock(c.ID, func() error {
+		return setStatus(app, c.ID, "snoozed", until)
+	})
 }
 
 func setStatus(app *App, id int, status string, snoozedUntil *int64) error {
@@ -313,15 +344,21 @@ func (c *ConvAssignCmd) Run(app *App) error {
 	if c.Agent == "" && c.Team == 0 {
 		return fmt.Errorf("--agent or --team required")
 	}
+	// Lock before resolveAgent: its agents/profile lookup is an API call, and
+	// a lock conflict must surface before any request, not as a masked lookup
+	// error or a delayed failure.
 	var agentPtr *int
-	if c.Agent != "" {
-		id, err := resolveAgent(app, c.Agent)
-		if err != nil {
-			return err
+	if err := withConvLock(c.ID, func() error {
+		if c.Agent != "" {
+			id, err := resolveAgent(app, c.Agent)
+			if err != nil {
+				return err
+			}
+			agentPtr = &id
 		}
-		agentPtr = &id
-	}
-	if _, err := app.Client.Conversations().Assign(c.ID, agentPtr, c.Team); err != nil {
+		_, err := app.Client.Conversations().Assign(c.ID, agentPtr, c.Team)
+		return err
+	}); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {
@@ -344,7 +381,9 @@ type ConvUnassignCmd struct {
 }
 
 func (c *ConvUnassignCmd) Run(app *App) error {
-	if err := app.Client.Conversations().Unassign(c.ID); err != nil {
+	if err := withConvLock(c.ID, func() error {
+		return app.Client.Conversations().Unassign(c.ID)
+	}); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {
@@ -371,7 +410,10 @@ func (c *ConvLabelCmd) Run(app *App) error {
 			}
 		}
 	}
-	if _, err := app.Client.Labels(c.ID).Add(flat); err != nil {
+	if err := withConvLock(c.ID, func() error {
+		_, err := app.Client.Labels(c.ID).Add(flat)
+		return err
+	}); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {
@@ -394,7 +436,9 @@ func (c *ConvPriorityCmd) Run(app *App) error {
 	if value == "none" {
 		value = ""
 	}
-	if err := app.Client.Conversations().UpdatePriority(c.ID, value); err != nil {
+	if err := withConvLock(c.ID, func() error {
+		return app.Client.Conversations().UpdatePriority(c.ID, value)
+	}); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {
