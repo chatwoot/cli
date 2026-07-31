@@ -42,7 +42,7 @@ func acquireAt(dir string, id int) (*Lock, error) {
 		return nil, err
 	}
 	if err := tryLock(f); err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, fmt.Errorf("conversation %d: %w", id, err)
 	}
 	// Best-effort PID marker for debugging; the flock is the real lock.
