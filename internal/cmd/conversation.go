@@ -344,15 +344,18 @@ func (c *ConvAssignCmd) Run(app *App) error {
 	if c.Agent == "" && c.Team == 0 {
 		return fmt.Errorf("--agent or --team required")
 	}
+	// Lock before resolveAgent: its agents/profile lookup is an API call, and
+	// a lock conflict must surface before any request, not as a masked lookup
+	// error or a delayed failure.
 	var agentPtr *int
-	if c.Agent != "" {
-		id, err := resolveAgent(app, c.Agent)
-		if err != nil {
-			return err
-		}
-		agentPtr = &id
-	}
 	if err := withConvLock(c.ID, func() error {
+		if c.Agent != "" {
+			id, err := resolveAgent(app, c.Agent)
+			if err != nil {
+				return err
+			}
+			agentPtr = &id
+		}
 		_, err := app.Client.Conversations().Assign(c.ID, agentPtr, c.Team)
 		return err
 	}); err != nil {

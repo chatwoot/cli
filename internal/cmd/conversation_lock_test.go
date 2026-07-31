@@ -32,6 +32,8 @@ func TestConvMutationsFailWhenConversationLocked(t *testing.T) {
 		{"open", func() error { return (&ConvOpenCmd{ID: convID}).Run(app) }},
 		{"pending", func() error { return (&ConvPendingCmd{ID: convID}).Run(app) }},
 		{"assign", func() error { return (&ConvAssignCmd{ID: convID, Team: 1}).Run(app) }},
+		// By-name assign: the lock must win before resolveAgent's API lookup.
+		{"assign-by-name", func() error { return (&ConvAssignCmd{ID: convID, Agent: "jane"}).Run(app) }},
 		{"unassign", func() error { return (&ConvUnassignCmd{ID: convID}).Run(app) }},
 		{"snooze", func() error { return (&ConvSnoozeCmd{ID: convID}).Run(app) }},
 		{"label", func() error { return (&ConvLabelCmd{ID: convID, Labels: []string{"vip"}}).Run(app) }},
