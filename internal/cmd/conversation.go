@@ -249,7 +249,9 @@ type ConvOpenCmd struct {
 }
 
 func (c *ConvOpenCmd) Run(app *App) error {
-	return setStatus(app, c.ID, "open", nil)
+	return withConvLock(c.ID, func() error {
+		return setStatus(app, c.ID, "open", nil)
+	})
 }
 
 type ConvPendingCmd struct {
@@ -257,7 +259,9 @@ type ConvPendingCmd struct {
 }
 
 func (c *ConvPendingCmd) Run(app *App) error {
-	return setStatus(app, c.ID, "pending", nil)
+	return withConvLock(c.ID, func() error {
+		return setStatus(app, c.ID, "pending", nil)
+	})
 }
 
 type ConvSnoozeCmd struct {
@@ -374,7 +378,9 @@ type ConvUnassignCmd struct {
 }
 
 func (c *ConvUnassignCmd) Run(app *App) error {
-	if err := app.Client.Conversations().Unassign(c.ID); err != nil {
+	if err := withConvLock(c.ID, func() error {
+		return app.Client.Conversations().Unassign(c.ID)
+	}); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {

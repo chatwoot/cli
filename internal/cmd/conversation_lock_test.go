@@ -29,7 +29,10 @@ func TestConvMutationsFailWhenConversationLocked(t *testing.T) {
 	}{
 		{"reply", func() error { return (&ConvReplyCmd{ID: convID, Text: "hi"}).Run(app) }},
 		{"resolve", func() error { return (&ConvResolveCmd{ID: convID}).Run(app) }},
+		{"open", func() error { return (&ConvOpenCmd{ID: convID}).Run(app) }},
+		{"pending", func() error { return (&ConvPendingCmd{ID: convID}).Run(app) }},
 		{"assign", func() error { return (&ConvAssignCmd{ID: convID, Team: 1}).Run(app) }},
+		{"unassign", func() error { return (&ConvUnassignCmd{ID: convID}).Run(app) }},
 		{"snooze", func() error { return (&ConvSnoozeCmd{ID: convID}).Run(app) }},
 	}
 	for _, tc := range cases {
