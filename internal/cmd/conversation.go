@@ -407,7 +407,10 @@ func (c *ConvLabelCmd) Run(app *App) error {
 			}
 		}
 	}
-	if _, err := app.Client.Labels(c.ID).Add(flat); err != nil {
+	if err := withConvLock(c.ID, func() error {
+		_, err := app.Client.Labels(c.ID).Add(flat)
+		return err
+	}); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {

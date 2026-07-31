@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Per-conversation lock for `conv reply`, `resolve`, `open`, `pending`, `snooze`, `assign`, and `unassign`: concurrent mutations of the same conversation from separate terminals now fail fast instead of both running. Locks live in `~/.chatwoot/locks/` and are released automatically by the OS if the process dies.
+- Per-conversation lock for `conv reply`, `resolve`, `open`, `pending`, `snooze`, `assign`, `unassign`, and `label`: concurrent mutations of the same conversation from separate terminals now fail fast instead of both running. Locks live in `~/.chatwoot/locks/` and are released automatically by the OS if the process dies.
 
 ### Changed
 

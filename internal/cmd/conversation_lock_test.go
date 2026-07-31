@@ -34,6 +34,7 @@ func TestConvMutationsFailWhenConversationLocked(t *testing.T) {
 		{"assign", func() error { return (&ConvAssignCmd{ID: convID, Team: 1}).Run(app) }},
 		{"unassign", func() error { return (&ConvUnassignCmd{ID: convID}).Run(app) }},
 		{"snooze", func() error { return (&ConvSnoozeCmd{ID: convID}).Run(app) }},
+		{"label", func() error { return (&ConvLabelCmd{ID: convID, Labels: []string{"vip"}}).Run(app) }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
