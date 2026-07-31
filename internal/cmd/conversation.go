@@ -433,7 +433,9 @@ func (c *ConvPriorityCmd) Run(app *App) error {
 	if value == "none" {
 		value = ""
 	}
-	if err := app.Client.Conversations().UpdatePriority(c.ID, value); err != nil {
+	if err := withConvLock(c.ID, func() error {
+		return app.Client.Conversations().UpdatePriority(c.ID, value)
+	}); err != nil {
 		return err
 	}
 	if app.Printer.Quiet {
