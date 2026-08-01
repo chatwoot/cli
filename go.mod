@@ -3,7 +3,7 @@ module github.com/chatwoot/cli
 go 1.26.5
 
 require (
-	github.com/alecthomas/kong v1.15.0
+	github.com/alecthomas/kong v1.16.0
 	github.com/getkin/kin-openapi v0.140.0
 	github.com/jotaen/kong-completion v0.0.14
 	github.com/zalando/go-keyring v0.2.8
