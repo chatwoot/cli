@@ -165,6 +165,49 @@ func TestConversationsListContract(t *testing.T) {
 	}
 }
 
+func TestConversationsFilterContract(t *testing.T) {
+	client := newContractClient(t, func(t *testing.T, r *http.Request, _ *openapi3filter.RequestValidationInput) contractResponse {
+		assertQuery(t, r.URL.Query(), url.Values{"page": {"3"}})
+		assertJSONBody(t, r, map[string]any{
+			"payload": []any{
+				map[string]any{
+					"attribute_key":   "contact_id",
+					"filter_operator": "equal_to",
+					"values":          []any{"42"},
+					"query_operator":  "AND",
+				},
+				map[string]any{
+					"attribute_key":   "status",
+					"filter_operator": "equal_to",
+					"values":          []any{"open"},
+				},
+			},
+		})
+
+		return contractResponse{body: `{
+			"meta": {"mine_count": 0, "unassigned_count": 0, "all_count": 1},
+			"payload": [{"id": 42, "status": "open"}]
+		}`}
+	})
+
+	got, err := client.Conversations().Filter(FilterOptions{
+		Page: 3,
+		Filters: []ConversationFilter{
+			{AttributeKey: "contact_id", FilterOperator: "equal_to", Values: []string{"42"}, QueryOperator: "AND"},
+			{AttributeKey: "status", FilterOperator: "equal_to", Values: []string{"open"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Filter returned error: %v", err)
+	}
+	if got.Data.Meta.AllCount != 1 {
+		t.Fatalf("all_count = %d, want 1", got.Data.Meta.AllCount)
+	}
+	if len(got.Data.Payload) != 1 || got.Data.Payload[0].ID != 42 {
+		t.Fatalf("payload = %#v, want conversation 42", got.Data.Payload)
+	}
+}
+
 func TestMessagesListContract(t *testing.T) {
 	client := newContractClient(t, func(t *testing.T, r *http.Request, _ *openapi3filter.RequestValidationInput) contractResponse {
 		assertQuery(t, r.URL.Query(), url.Values{

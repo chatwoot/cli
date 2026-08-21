@@ -65,16 +65,20 @@ type Inbox struct {
 	Name string `json:"name"`
 }
 
+type ConversationsListMeta struct {
+	AllCount        int `json:"all_count"`
+	AssignedCount   int `json:"assigned_count"`
+	UnassignedCount int `json:"unassigned_count"`
+	MineCount       int `json:"mine_count"`
+}
+
+type ConversationsListData struct {
+	Meta    ConversationsListMeta `json:"meta"`
+	Payload []Conversation        `json:"payload"`
+}
+
 type ConversationsListResponse struct {
-	Data struct {
-		Meta struct {
-			AllCount        int `json:"all_count"`
-			AssignedCount   int `json:"assigned_count"`
-			UnassignedCount int `json:"unassigned_count"`
-			MineCount       int `json:"mine_count"`
-		} `json:"meta"`
-		Payload []Conversation `json:"payload"`
-	} `json:"data"`
+	Data ConversationsListData `json:"data"`
 }
 
 type ListOptions struct {
@@ -86,6 +90,18 @@ type ListOptions struct {
 	Page         int
 	Labels       []string
 	SortBy       string
+}
+
+type ConversationFilter struct {
+	AttributeKey   string   `json:"attribute_key"`
+	FilterOperator string   `json:"filter_operator"`
+	Values         []string `json:"values,omitempty"`
+	QueryOperator  string   `json:"query_operator,omitempty"`
+}
+
+type FilterOptions struct {
+	Filters []ConversationFilter
+	Page    int
 }
 
 func (s *ConversationsService) List(opts ListOptions) (*ConversationsListResponse, error) {
@@ -119,6 +135,35 @@ func (s *ConversationsService) List(opts ListOptions) (*ConversationsListRespons
 	}
 
 	return &resp, nil
+}
+
+func (s *ConversationsService) Filter(opts FilterOptions) (*ConversationsListResponse, error) {
+	body, err := json.Marshal(struct {
+		Payload []ConversationFilter `json:"payload"`
+	}{Payload: opts.Filters})
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode conversation filters: %w", err)
+	}
+
+	path := "/conversations/filter"
+	if opts.Page > 0 {
+		path += "?page=" + strconv.Itoa(opts.Page)
+	}
+
+	var wireResp struct {
+		Meta    ConversationsListMeta `json:"meta"`
+		Payload []Conversation        `json:"payload"`
+	}
+	if err := s.client.Post(path, bytes.NewReader(body), &wireResp); err != nil {
+		return nil, err
+	}
+
+	return &ConversationsListResponse{
+		Data: ConversationsListData{
+			Meta:    wireResp.Meta,
+			Payload: wireResp.Payload,
+		},
+	}, nil
 }
 
 func (s *ConversationsService) Get(id int) (*Conversation, error) {
