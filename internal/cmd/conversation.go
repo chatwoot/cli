@@ -18,25 +18,43 @@ import (
 // -----------------------------------------------------------------------------
 
 type ConvsCmd struct {
-	Status   string   `short:"s" default:"open" help:"Filter: open, resolved, pending, snoozed."`
+	Status   string   `short:"s" default:"open" help:"Filter: open, resolved, pending, snoozed, all."`
 	Inbox    int      `short:"i" help:"Filter by inbox ID."`
-	Assignee string   `default:"me" help:"Filter: me, unassigned, all."`
+	Assignee string   `default:"me" help:"Filter: me, assigned, unassigned, all."`
 	Team     int      `help:"Filter by team ID."`
 	Label    []string `short:"l" help:"Filter by labels."`
 	Query    string   `help:"Search conversations by message content."`
+	Contact  int      `help:"Filter by contact ID."`
 	Page     int      `short:"p" default:"1" help:"Page number."`
 }
 
 func (c *ConvsCmd) Run(app *App) error {
-	resp, err := app.Client.Conversations().List(sdk.ListOptions{
-		Status:       c.Status,
-		InboxID:      c.Inbox,
-		AssigneeType: c.Assignee,
-		TeamID:       c.Team,
-		Query:        c.Query,
-		Labels:       c.Label,
-		Page:         c.Page,
-	})
+	var resp *sdk.ConversationsListResponse
+	var err error
+	if c.Contact > 0 {
+		if c.Query != "" {
+			return fmt.Errorf("--query cannot be combined with --contact")
+		}
+		resp, err = filterConversations(app, conversationFilterOptions{
+			ContactID: c.Contact,
+			Status:    c.Status,
+			InboxID:   c.Inbox,
+			Assignee:  c.Assignee,
+			TeamID:    c.Team,
+			Labels:    c.Label,
+			Page:      c.Page,
+		})
+	} else {
+		resp, err = app.Client.Conversations().List(sdk.ListOptions{
+			Status:       c.Status,
+			InboxID:      c.Inbox,
+			AssigneeType: c.Assignee,
+			TeamID:       c.Team,
+			Query:        c.Query,
+			Labels:       c.Label,
+			Page:         c.Page,
+		})
+	}
 	if err != nil {
 		return err
 	}
@@ -473,6 +491,67 @@ func (c *ConvContactCmd) Run(app *App) error {
 // -----------------------------------------------------------------------------
 // Helpers.
 // -----------------------------------------------------------------------------
+
+type conversationFilterOptions struct {
+	ContactID int
+	Status    string
+	InboxID   int
+	Assignee  string
+	TeamID    int
+	Labels    []string
+	Page      int
+}
+
+func filterConversations(app *App, opts conversationFilterOptions) (*sdk.ConversationsListResponse, error) {
+	if opts.ContactID <= 0 {
+		return nil, fmt.Errorf("contact ID must be greater than zero")
+	}
+
+	filters := make([]sdk.ConversationFilter, 0, 6)
+	filters = appendConversationFilter(filters, "contact_id", "equal_to", strconv.Itoa(opts.ContactID))
+	if opts.Status != "" && opts.Status != "all" {
+		filters = appendConversationFilter(filters, "status", "equal_to", opts.Status)
+	}
+	if opts.InboxID > 0 {
+		filters = appendConversationFilter(filters, "inbox_id", "equal_to", strconv.Itoa(opts.InboxID))
+	}
+	if opts.TeamID > 0 {
+		filters = appendConversationFilter(filters, "team_id", "equal_to", strconv.Itoa(opts.TeamID))
+	}
+	if len(opts.Labels) > 0 {
+		filters = appendConversationFilter(filters, "labels", "equal_to", opts.Labels...)
+	}
+
+	switch opts.Assignee {
+	case "", "all":
+	case "me":
+		agentID, err := resolveAgent(app, "me")
+		if err != nil {
+			return nil, err
+		}
+		filters = appendConversationFilter(filters, "assignee_id", "equal_to", strconv.Itoa(agentID))
+	case "assigned":
+		filters = appendConversationFilter(filters, "assignee_id", "is_present")
+	case "unassigned":
+		filters = appendConversationFilter(filters, "assignee_id", "is_not_present")
+	default:
+		return nil, fmt.Errorf("invalid assignee %q: expected me, assigned, unassigned, or all", opts.Assignee)
+	}
+
+	for i := 0; i < len(filters)-1; i++ {
+		filters[i].QueryOperator = "AND"
+	}
+
+	return app.Client.Conversations().Filter(sdk.FilterOptions{Filters: filters, Page: opts.Page})
+}
+
+func appendConversationFilter(filters []sdk.ConversationFilter, key, operator string, values ...string) []sdk.ConversationFilter {
+	return append(filters, sdk.ConversationFilter{
+		AttributeKey:   key,
+		FilterOperator: operator,
+		Values:         values,
+	})
+}
 
 func resolveAgent(app *App, ref string) (int, error) {
 	ref = strings.TrimSpace(ref)

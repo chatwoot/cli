@@ -104,11 +104,25 @@ func renderContact(app *App, contact *sdk.ContactFull) error {
 }
 
 type ContactConversationsCmd struct {
-	ID int `arg:"" help:"Contact ID."`
+	ID       int      `arg:"" help:"Contact ID."`
+	Status   string   `short:"s" default:"open" help:"Filter: open, resolved, pending, snoozed, all."`
+	Inbox    int      `short:"i" help:"Filter by inbox ID."`
+	Assignee string   `default:"all" help:"Filter: me, assigned, unassigned, all."`
+	Team     int      `help:"Filter by team ID."`
+	Label    []string `short:"l" help:"Filter by labels."`
+	Page     int      `short:"p" default:"1" help:"Page number."`
 }
 
 func (c *ContactConversationsCmd) Run(app *App) error {
-	resp, err := app.Client.Contacts().Conversations(c.ID)
+	resp, err := filterConversations(app, conversationFilterOptions{
+		ContactID: c.ID,
+		Status:    c.Status,
+		InboxID:   c.Inbox,
+		Assignee:  c.Assignee,
+		TeamID:    c.Team,
+		Labels:    c.Label,
+		Page:      c.Page,
+	})
 	if err != nil {
 		return err
 	}
@@ -118,14 +132,15 @@ func (c *ContactConversationsCmd) Run(app *App) error {
 		return nil
 	}
 
-	if len(resp.Payload) == 0 {
+	conversations := resp.Data.Payload
+	if len(conversations) == 0 {
 		fmt.Println("No conversations found for this contact.")
 		return nil
 	}
 
 	headers := []string{"ID", "Status", "Assignee", "Inbox", "Last Activity"}
-	rows := make([][]string, 0, len(resp.Payload))
-	for _, conv := range resp.Payload {
+	rows := make([][]string, 0, len(conversations))
+	for _, conv := range conversations {
 		rows = append(rows, []string{
 			strconv.Itoa(conv.ID),
 			conv.Status,
