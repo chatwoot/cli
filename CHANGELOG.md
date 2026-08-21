@@ -9,9 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native contact filtering and pagination for conversation lists through `convs --contact <id>` and `contact <id> conversations`, backed by Chatwoot's conversation filter API.
 - Per-conversation lock for all mutating `conv` verbs (`reply`, `resolve`, `open`, `pending`, `snooze`, `assign`, `unassign`, `label`, `priority`): concurrent mutations of the same conversation from separate terminals now fail fast instead of both running. Locks live in `~/.chatwoot/locks/` and are released automatically by the OS if the process dies.
 
 ### Changed
+
+- `contact <id> conversations -o json` now uses the standard conversation-list `.data.payload[]` response shape.
 
 ### Fixed
 
