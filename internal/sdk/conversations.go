@@ -151,11 +151,15 @@ func (s *ConversationsService) Filter(opts FilterOptions) (*ConversationsListRes
 	}
 
 	var wireResp struct {
-		Meta    ConversationsListMeta `json:"meta"`
-		Payload []Conversation        `json:"payload"`
+		Data    *ConversationsListData `json:"data"`
+		Meta    ConversationsListMeta  `json:"meta"`
+		Payload []Conversation         `json:"payload"`
 	}
 	if err := s.client.Post(path, bytes.NewReader(body), &wireResp); err != nil {
 		return nil, err
+	}
+	if wireResp.Data != nil {
+		return &ConversationsListResponse{Data: *wireResp.Data}, nil
 	}
 
 	return &ConversationsListResponse{

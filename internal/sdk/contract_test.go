@@ -185,8 +185,10 @@ func TestConversationsFilterContract(t *testing.T) {
 		})
 
 		return contractResponse{body: `{
-			"meta": {"mine_count": 0, "unassigned_count": 0, "all_count": 1},
-			"payload": [{"id": 42, "status": "open"}]
+			"data": {
+				"meta": {"mine_count": 0, "unassigned_count": 0, "assigned_count": 1, "all_count": 1},
+				"payload": [{"id": 42, "status": "open"}]
+			}
 		}`}
 	})
 
