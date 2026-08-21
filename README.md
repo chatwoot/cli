@@ -43,6 +43,7 @@ The CLI uses a simple noun grammar:
 chatwoot convs                                 # Open conversations assigned to you
 chatwoot convs --assignee all --inbox 5        # All conversations in inbox 5
 chatwoot convs --query "refund"                # Search by message content
+chatwoot convs --contact 456 -s open -p 2       # Page through a contact's open conversations
 
 chatwoot conv 123                              # View
 chatwoot conv 123 reply "Looking into it"
@@ -53,7 +54,7 @@ chatwoot conv 123 label billing,urgent
 chatwoot conv 123 priority urgent              # urgent | high | medium | low | none
 
 chatwoot contacts --search "john"
-chatwoot contact 456 conversations
+chatwoot contact 456 conversations -s open -p 2 # Native server-side filtering and pagination
 
 chatwoot inboxes / agents / labels / teams     # List
 chatwoot me                                    # Your profile

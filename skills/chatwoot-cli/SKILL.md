@@ -121,7 +121,7 @@ chatwoot convs --help         # filters for the list command
 | `conv <id> priority <level>`     | `urgent`, `high`, `medium`, `low`, `none`         |
 | `conv <id> contact`              | View the contact (sender) for the conversation    |
 | `contacts`                       | List/search contacts                              |
-| `contact <id>` / `<id> conversations` | View a contact / list their conversations    |
+| `contact <id>` / `<id> conversations` | View a contact / filter and paginate their conversations |
 | `inboxes` / `inbox <id>`         | List inboxes / view one                           |
 | `agents` / `labels` / `teams`    | List account-level resources                      |
 | `hcs`                            | List help centers                                 |
@@ -189,6 +189,22 @@ chatwoot convs --assignee me -s open -o json \
 chatwoot convs --query "refund" --assignee all -s open -q   # IDs only
 ```
 
+**Filter and paginate** — pagination composes with filters. Keep the same
+filters on every request while advancing the 1-based `-p` page number:
+```bash
+chatwoot convs --assignee me -s open -l billing -p 2
+chatwoot contacts --search "alice" --sort=-last_activity_at -p 3
+```
+
+For a known contact ID, filtering and pagination happen natively on the server:
+```bash
+chatwoot contact 123 conversations --status open --assignee all --page 2 -o json
+chatwoot convs --contact 123 --status open --assignee all --page 2 -o json
+```
+Both conversation forms return the standard `.data.payload[]` JSON shape.
+`--query` cannot be combined with `--contact`; message-content search is not a
+supported conversation-filter attribute.
+
 **Read recent messages** — `message_type`: `0` customer, `1` agent, `2` activity, `3` template:
 ```bash
 chatwoot conv 123 messages -o json \
@@ -209,8 +225,9 @@ chatwoot convs -l spam -q | xargs -I{} chatwoot conv {} resolve
 
 **Chain contact → conversations:**
 ```bash
-id=$(chatwoot contacts --search "jane@example.com" -o json | jq '.payload[0].id')
-chatwoot contact "$id" conversations -o json
+chatwoot contacts --search "jane@example.com" -o json \
+  | jq '.payload[] | {id, name, email, phone_number}'
+chatwoot contact 123 conversations --status open --assignee all -o json
 ```
 
 **Help center lookup** — set a default portal once, then search/fetch articles:
