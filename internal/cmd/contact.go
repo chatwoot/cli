@@ -13,9 +13,16 @@ import (
 // -----------------------------------------------------------------------------
 
 type ContactsCmd struct {
-	Search string `help:"Search query (name, email, phone)."`
-	Page   int    `short:"p" default:"1" help:"Page number."`
-	Sort   string `help:"Sort by name, email, phone_number, last_activity_at; '-' prefix for descending."`
+	Search string `help:"Find contacts by name, email, or phone number."`
+	Page   int    `short:"p" default:"1" help:"Which page of results to show."`
+	Sort   string `help:"Sort by name, email, phone_number, or last_activity_at. Put - in front to reverse, like -last_activity_at."`
+}
+
+func (c *ContactsCmd) Help() string {
+	return `Examples:
+  chatwoot contacts                                List contacts
+  chatwoot contacts --search "jane@example.com"    Find someone
+  chatwoot contacts --sort -last_activity_at       Most recently active first`
 }
 
 func (c *ContactsCmd) Run(app *App) error {
@@ -68,12 +75,12 @@ func (c *ContactsCmd) Run(app *App) error {
 // -----------------------------------------------------------------------------
 
 type ContactCmd struct {
-	View          ContactViewCmd          `cmd:"" default:"withargs" help:"View a contact (default)."`
-	Conversations ContactConversationsCmd `cmd:"" help:"List conversations for the contact."`
+	View          ContactViewCmd          `cmd:"" default:"withargs" help:"Show the contact. This is what 'chatwoot contact 456' does."`
+	Conversations ContactConversationsCmd `cmd:"" help:"List this contact's conversations."`
 }
 
 type ContactViewCmd struct {
-	ID int `arg:"" help:"Contact ID."`
+	ID int `arg:"" help:"The contact ID."`
 }
 
 func (c *ContactViewCmd) Run(app *App) error {
@@ -104,7 +111,7 @@ func renderContact(app *App, contact *sdk.ContactFull) error {
 }
 
 type ContactConversationsCmd struct {
-	ID int `arg:"" help:"Contact ID."`
+	ID int `arg:"" help:"The contact ID."`
 }
 
 func (c *ContactConversationsCmd) Run(app *App) error {

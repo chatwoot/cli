@@ -93,14 +93,18 @@ func main() {
 	app.Finish(os.Stderr, interactive)
 }
 
-func newParser(cli *cmd.CLI) (*kong.Kong, error) {
-	return kong.New(cli,
+func newParser(cli *cmd.CLI, extra ...kong.Option) (*kong.Kong, error) {
+	options := []kong.Option{
 		kong.Name("chatwoot"),
-		kong.Description("CLI for Chatwoot."),
+		kong.Description("Work with your Chatwoot inbox from the terminal."),
 		kong.Vars{"version": version},
 		kong.UsageOnError(),
 		kong.Help(idFirstHelpPrinter),
-	)
+		// Top-level help lists commands, not every verb; `chatwoot conv --help`
+		// shows the verbs.
+		kong.ConfigureHelp(kong.HelpOptions{NoExpandSubcommands: true}),
+	}
+	return kong.New(cli, append(options, extra...)...)
 }
 
 // normalizeArgs turns the user-facing grammar into what Kong parses.

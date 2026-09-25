@@ -20,12 +20,23 @@ var fetchProfile = func(client *sdk.Client) (*sdk.ProfileResponse, error) {
 
 // AccountsCmd is `chatwoot accounts` — list, refresh, and rename accounts.
 type AccountsCmd struct {
-	List   AccountsListCmd   `cmd:"" default:"withargs" help:"List registered accounts (the default)."`
-	Rename AccountsRenameCmd `cmd:"" help:"Give an account your own name."`
+	List   AccountsListCmd   `cmd:"" default:"withargs" help:"List your accounts. This is what 'chatwoot accounts' does."`
+	Rename AccountsRenameCmd `cmd:"" help:"Give an account a name you prefer."`
 }
 
 type AccountsListCmd struct {
-	Refresh bool `help:"Re-sync accounts with every saved login."`
+	Refresh bool `help:"Check for accounts you've joined or left since you logged in."`
+}
+
+func (c *AccountsCmd) Help() string {
+	return `Log in once per Chatwoot instance and all your accounts there show up here.
+The one marked * is your default.
+
+Examples:
+  chatwoot accounts                                List your accounts
+  chatwoot accounts --refresh                      Find new or removed ones
+  chatwoot accounts rename chatwoot-staging stg    Use a shorter name
+  chatwoot @stg convs                              Use one for one command`
 }
 
 // accountView is the JSON shape of one listed account.
@@ -190,8 +201,8 @@ func resolveAccount(cfg *config.Config, selector string) (*config.Account, error
 }
 
 type AccountsRenameCmd struct {
-	Old string `arg:"" help:"Current account name."`
-	New string `arg:"" help:"New account name."`
+	Old string `arg:"" help:"The account's current name."`
+	New string `arg:"" help:"The name you want. Letters, numbers, and dashes."`
 }
 
 func (c *AccountsRenameCmd) Run(app *App) error {
@@ -214,7 +225,21 @@ func (c *AccountsRenameCmd) Run(app *App) error {
 
 // UseCmd is `chatwoot use <name>` — change the saved default account.
 type UseCmd struct {
-	Name string `arg:"" optional:"" help:"Account name (or unique prefix) to make the default. Omit to show the current default."`
+	Name string `arg:"" optional:"" help:"The account name, or just its first few letters. Leave out to see your current default."`
+}
+
+func (c *UseCmd) Help() string {
+	return `Your default account is used whenever a command doesn't name one. This
+changes it everywhere: every terminal and script on this machine.
+
+To switch just for one command, put @name first. For one terminal session or
+a script, set CHATWOOT_ACCOUNT instead.
+
+Examples:
+  chatwoot use acme                       Make acme the default
+  chatwoot use                            Show the current default
+  chatwoot @acme convs                    Use acme for one command only
+  export CHATWOOT_ACCOUNT=acme            Use acme in this terminal only`
 }
 
 func (c *UseCmd) Run(app *App) error {

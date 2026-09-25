@@ -10,8 +10,8 @@ import (
 )
 
 type ConfigCmd struct {
-	Path ConfigPathCmd `cmd:"" help:"Print the config file path."`
-	View ConfigViewCmd `cmd:"" help:"Print current configuration."`
+	Path ConfigPathCmd `cmd:"" help:"Print where your settings file is."`
+	View ConfigViewCmd `cmd:"" help:"Show your accounts and saved settings. Tokens are never shown."`
 }
 
 type ConfigPathCmd struct{}
