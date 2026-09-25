@@ -36,7 +36,7 @@ internal/
 ## Key Conventions
 
 - Kong commands: define flags/args as struct fields with tags, implement `Run(app *App) error`
-- Grammar: plural noun = list (`ConvsCmd`), singular noun = parent struct with verb subcommands; each verb's struct holds its own `arg:""` ID. Kong forbids mixing `arg:""` and `cmd:""` siblings, so internally the verb comes before the ID (`conv reply 123 "hi"`).
+- Grammar reads where → what → which → do: `chatwoot [@account] <noun> [id] [verb]`; a pasted dashboard link fills account + noun + id. Plural noun = list (`ConvsCmd`), singular noun = parent struct with verb subcommands; each verb's struct holds its own `arg:""` ID. Kong forbids mixing `arg:""` and `cmd:""` siblings, so internally the verb comes before the ID (`conv reply 123 "hi"`).
 - `cmd/chatwoot/main.go` runs `rewriteIDFirstGrammar` to swap `<noun> <id> <verb>` → `<noun> <verb> <id>` before Kong parses, so users get to type the natural id-first form. A custom `kong.Help` printer flips the help output to match.
 - `default:"withargs"` on the View subcommand routes `chatwoot conv 123` to `conv view 123`.
 - `skipAuth` in main.go: auth/config commands bypass API client creation

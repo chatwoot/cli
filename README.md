@@ -55,11 +55,15 @@ See the [agent skill docs](https://developers.chatwoot.com/cli/agent-skill) for 
 
 ## Usage
 
-The CLI uses a simple noun grammar:
+Every command reads left to right, the way you'd say it: **where**, **what**, **which one**, then **what to do**.
 
-- **Plural noun = list:** `chatwoot convs`, `chatwoot contacts`, `chatwoot agents`
-- **`<noun> <id>`** views: `chatwoot conv 123`
-- **`<noun> <id> <verb>`** acts: `chatwoot conv 123 reply "thanks"` — id before verb, the way you'd say it.
+| Shape | Means | Example |
+|---|---|---|
+| Plural noun | list | `chatwoot convs`, `chatwoot contacts`, `chatwoot agents` |
+| Singular noun + id | view | `chatwoot conv 123` |
+| Singular noun + id + verb | act (id before verb, the way you'd say it) | `chatwoot conv 123 reply "thanks"` |
+| `@account` + any of the above | the same, in another account (leave it out for your default) | `chatwoot @acme conv 123 reply "thanks"` |
+| Dashboard link + verb | the link is account + noun + id in one | `chatwoot https://app.chatwoot.com/app/accounts/1/conversations/123 reply "thanks"` |
 
 ```bash
 chatwoot convs                                 # Open conversations assigned to you
