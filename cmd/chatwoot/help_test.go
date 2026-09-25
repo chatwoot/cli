@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode"
@@ -160,4 +161,101 @@ func TestHelpFitsEightyColumns(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestLayoutHelpSpacesHeadersAndDedentsSections(t *testing.T) {
+	in := "Usage: chatwoot convs\n\nList conversations.\n\nExamples:\n\n    chatwoot convs    Yours\n\n" +
+		"Flags:\n  -h, --help      Help.\n      --no-color  Plain.\n                  More.\n\n" +
+		"Conversations\n  convs [flags]\n    List conversations.\n"
+	want := "Usage: chatwoot convs\n\nList conversations.\n\nExamples:\n\nchatwoot convs    Yours\n\n" +
+		"Flags:\n\n-h, --help      Help.\n    --no-color  Plain.\n                More.\n\n" +
+		"Conversations\n\nconvs [flags]\n  List conversations.\n"
+	if got := layoutHelp(in); got != want {
+		t.Fatalf("layoutHelp() =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// Real help output: a blank line after every header, and entries flush left
+// with their descriptions two spaces in.
+func TestHelpSectionLayout(t *testing.T) {
+	for _, args := range [][]string{nil, {"conv"}, {"conv", "reply"}, {"accounts"}} {
+		lines := strings.Split(helpFor(t, args...), "\n")
+		for i, line := range lines[:len(lines)-1] {
+			if helpHeader.MatchString(line) && lines[i+1] != "" {
+				t.Errorf("chatwoot %v --help: no blank line after header %q", args, line)
+			}
+		}
+		out := strings.Join(lines, "\n")
+		for _, bad := range []string{"\n  convs", "\n  -h, --help", "\n    chatwoot convs", "\n    List conversations."} {
+			if strings.Contains(out, bad) {
+				t.Errorf("chatwoot %v --help still indents %q", args, strings.TrimSpace(bad))
+			}
+		}
+	}
+	root := helpFor(t)
+	for _, want := range []string{"\nconvs (conversations) [flags]\n  List conversations.", "\n-h, --help ", "\nchatwoot convs "} {
+		if !strings.Contains(root, want) {
+			t.Errorf("root help missing %q:\n%s", want, root)
+		}
+	}
+}
+
+func TestColorizeHelpPaintsWithoutChangingText(t *testing.T) {
+	plain := helpFor(t, "conv", "reply")
+	colored := colorizeHelp(plain)
+
+	if !strings.Contains(colored, "\x1b[") {
+		t.Fatal("colorizeHelp added no color")
+	}
+	if got := stripANSI(colored); got != plain {
+		t.Fatalf("colorizing changed the text:\n%s", got)
+	}
+	for _, want := range []string{
+		helpStyle.header + "Examples:" + ansiReset,
+		helpStyle.header + "Arguments:" + ansiReset,
+		helpStyle.placeholder + "<id>" + ansiReset,
+		helpStyle.flag + "--private" + ansiReset,
+	} {
+		if !strings.Contains(colored, want) {
+			t.Errorf("colored help missing %q", want)
+		}
+	}
+
+	root := colorizeHelp(helpFor(t))
+	for _, want := range []string{
+		helpStyle.header + "Conversations" + ansiReset,
+		helpStyle.command + "convs",
+		helpStyle.note + "Your open conversations" + ansiReset, // example descriptions
+	} {
+		if !strings.Contains(root, want) {
+			t.Errorf("colored root help missing %q", want)
+		}
+	}
+}
+
+func TestHelpColorOnlyForInteractiveTerminals(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm-256color")
+	if !wantHelpColor(true, nil) {
+		t.Fatal("a terminal should get color")
+	}
+	if wantHelpColor(false, nil) {
+		t.Fatal("a pipe or file must stay plain")
+	}
+	if wantHelpColor(true, []string{"convs", "--no-color", "--help"}) {
+		t.Fatal("--no-color must turn color off")
+	}
+	t.Setenv("NO_COLOR", "1")
+	if wantHelpColor(true, nil) {
+		t.Fatal("NO_COLOR must turn color off")
+	}
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "dumb")
+	if wantHelpColor(true, nil) {
+		t.Fatal("TERM=dumb must stay plain")
+	}
+}
+
+func stripANSI(s string) string {
+	return regexp.MustCompile(`\x1b\[[0-9;]*m`).ReplaceAllString(s, "")
 }

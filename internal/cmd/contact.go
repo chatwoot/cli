@@ -75,7 +75,7 @@ func (c *ContactsCmd) Run(app *App) error {
 // -----------------------------------------------------------------------------
 
 type ContactCmd struct {
-	View          ContactViewCmd          `cmd:"" default:"withargs" help:"Show the contact. This is what 'chatwoot contact 456' does."`
+	View          ContactViewCmd          `cmd:"" default:"withargs" help:"Show the contact. You can leave out 'view': 'chatwoot contact 456' works too."`
 	Conversations ContactConversationsCmd `cmd:"" help:"List this contact's conversations."`
 }
 

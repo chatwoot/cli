@@ -48,7 +48,7 @@ func (c *InboxesCmd) Run(app *App) error {
 // -----------------------------------------------------------------------------
 
 type InboxCmd struct {
-	View InboxViewCmd `cmd:"" default:"withargs" help:"Show the inbox. This is what 'chatwoot inbox 5' does."`
+	View InboxViewCmd `cmd:"" default:"withargs" help:"Show the inbox. You can leave out 'view': 'chatwoot inbox 5' works too."`
 }
 
 type InboxViewCmd struct {

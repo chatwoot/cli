@@ -88,7 +88,7 @@ func (c *ConvsCmd) Run(app *App) error {
 // -----------------------------------------------------------------------------
 
 type ConvCmd struct {
-	View     ConvViewCmd     `cmd:"" default:"withargs" help:"Show the conversation. This is what 'chatwoot conv 123' does."`
+	View     ConvViewCmd     `cmd:"" default:"withargs" help:"Show the conversation. You can leave out 'view': 'chatwoot conv 123' works too."`
 	Messages ConvMessagesCmd `cmd:"" help:"Show the messages in the conversation."`
 	Reply    ConvReplyCmd    `cmd:"" help:"Send a reply the customer will see, or a private note with --private."`
 	Resolve  ConvResolveCmd  `cmd:"" help:"Mark the conversation as resolved."`

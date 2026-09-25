@@ -20,7 +20,7 @@ var fetchProfile = func(client *sdk.Client) (*sdk.ProfileResponse, error) {
 
 // AccountsCmd is `chatwoot accounts` — list, refresh, and rename accounts.
 type AccountsCmd struct {
-	List   AccountsListCmd   `cmd:"" default:"withargs" help:"List your accounts. This is what 'chatwoot accounts' does."`
+	List   AccountsListCmd   `cmd:"" default:"withargs" help:"List your accounts. You can leave out 'list': 'chatwoot accounts' works too."`
 	Rename AccountsRenameCmd `cmd:"" help:"Give an account a name you prefer."`
 }
 
