@@ -13,6 +13,7 @@ import (
 	"github.com/chatwoot/cli/internal/cmd"
 	"github.com/chatwoot/cli/internal/config"
 	kongcompletion "github.com/jotaen/kong-completion"
+	"golang.org/x/term"
 )
 
 var version = "dev"
@@ -77,10 +78,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	if notice := cmd.TargetNotice(app, cmdStr, &cli); notice != "" {
+		fmt.Fprintln(os.Stderr, notice)
+	}
+
 	if err := ctx.Run(app); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", cmd.ExplainError(app, err))
 		os.Exit(1)
 	}
+
+	// Notices go to stderr and only to a person at a terminal, never into
+	// --json/--quiet output or a pipe.
+	interactive := cli.Output == "text" && !cli.Quiet && term.IsTerminal(int(os.Stderr.Fd()))
+	app.Finish(os.Stderr, interactive)
 }
 
 func newParser(cli *cmd.CLI) (*kong.Kong, error) {

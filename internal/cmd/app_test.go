@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -215,5 +219,143 @@ func TestNewAppLinkLoginDeclined(t *testing.T) {
 	var notLoggedIn *config.NotLoggedInError
 	if !errors.As(err, &notLoggedIn) {
 		t.Fatalf("declined login error = %v, want NotLoggedInError", err)
+	}
+}
+
+// finishFixture is an upgraded user: a v1 config and keyring entry, pointing at
+// a profile server that lists more accounts than the user had configured.
+func finishFixture(t *testing.T) (requests *int) {
+	t.Helper()
+	isolateAuthEnv(t)
+	count := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":7,"name":"Shivam","accounts":[{"id":1,"name":"Chatwoot"},{"id":42,"name":"Acme"},{"id":77,"name":"Globex Inc"}]}`))
+	}))
+	t.Cleanup(server.Close)
+	writeV1Config(t, "base_url: "+server.URL+"\naccount_id: 1\n")
+	seedV1Keyring(t, server.URL, 1, "v1-token")
+	return &count
+}
+
+// The first successful run after an upgrade names the migrated account and
+// tells the user, once, about their other accounts.
+func TestFinishAnnouncesOtherAccountsOnceAfterUpgrade(t *testing.T) {
+	requests := finishFixture(t)
+
+	app, err := NewApp(&CLI{Output: "text"}, false, "test")
+	if err != nil {
+		t.Fatalf("NewApp: %v", err)
+	}
+	var notice bytes.Buffer
+	app.Finish(&notice, true)
+
+	for _, want := range []string{"You also have access to", "acme #42", "globex-inc #77", "chatwoot @acme convs"} {
+		if !strings.Contains(notice.String(), want) {
+			t.Fatalf("notice missing %q:\n%s", want, notice.String())
+		}
+	}
+	cfg, _ := config.Load()
+	if def := cfg.DefaultAccount(); def == nil || def.Name != "chatwoot" || def.Provisional || def.UserID != 7 {
+		t.Fatalf("default after first run = %#v, want chatwoot for user 7", def)
+	}
+	if cfg.Find("acme") == nil || cfg.Find("globex-inc") == nil {
+		t.Fatalf("other accounts not registered: %v", cfg.Accounts)
+	}
+
+	// Next run: nothing to announce and no extra request.
+	before := *requests
+	app, err = NewApp(&CLI{Output: "text"}, false, "test")
+	if err != nil {
+		t.Fatalf("second NewApp: %v", err)
+	}
+	notice.Reset()
+	app.Finish(&notice, true)
+	if notice.Len() != 0 || *requests != before {
+		t.Fatalf("second run announced again (%q) or made %d requests", notice.String(), *requests-before)
+	}
+}
+
+func TestFinishRegistersQuietlyWhenNoticeNotWanted(t *testing.T) {
+	finishFixture(t)
+
+	app, err := NewApp(&CLI{Output: "json"}, false, "test")
+	if err != nil {
+		t.Fatalf("NewApp: %v", err)
+	}
+	var notice bytes.Buffer
+	app.Finish(&notice, false)
+	if notice.Len() != 0 {
+		t.Fatalf("notice printed when not wanted: %q", notice.String())
+	}
+	if cfg, _ := config.Load(); cfg.Find("acme") == nil {
+		t.Fatal("accounts should still be registered")
+	}
+}
+
+func TestFinishSkipsEnvironmentTokens(t *testing.T) {
+	requests := finishFixture(t)
+	t.Setenv(config.APIKeyEnv, "someone-elses-token")
+
+	app, err := NewApp(&CLI{Output: "text"}, false, "test")
+	if err != nil {
+		t.Fatalf("NewApp: %v", err)
+	}
+	var notice bytes.Buffer
+	app.Finish(&notice, true)
+	if *requests != 0 || notice.Len() != 0 {
+		t.Fatalf("env-token run synced accounts (%d requests, notice %q)", *requests, notice.String())
+	}
+}
+
+func TestTargetNotice(t *testing.T) {
+	cfg := &config.Config{Default: "chatwoot", Accounts: []config.Account{
+		{Name: "chatwoot", BaseURL: "https://app.chatwoot.com", ID: 1},
+		{Name: "acme", BaseURL: "https://app.chatwoot.com", ID: 42},
+	}}
+	def := &App{Config: cfg, Account: cfg.Find("chatwoot")}
+	other := &App{Config: cfg, Account: cfg.Find("acme")}
+	adhoc := &App{Config: cfg, Account: &config.Account{BaseURL: "https://app.chatwoot.com", ID: 99}}
+
+	cases := []struct {
+		app     *App
+		command string
+		cli     CLI
+		want    string
+	}{
+		{other, "conv reply <id> <text>", CLI{}, "→ acme"},
+		{other, "conv resolve <id>", CLI{}, "→ acme"},
+		{other, "conv assign <id>", CLI{}, "→ acme"},
+		{adhoc, "conv label <id> <labels>", CLI{}, "→ account #99 on app.chatwoot.com"},
+		{def, "conv reply <id> <text>", CLI{}, ""}, // default: nothing
+		{other, "convs", CLI{}, ""},                // read
+		{other, "conv view <id>", CLI{}, ""},       // read
+		{other, "api <path>", CLI{}, ""},           // GET
+		{other, "api <path>", CLI{Api: ApiCmd{Data: "{}"}}, "→ acme"},
+		{other, "api <path>", CLI{Api: ApiCmd{Method: "delete"}}, "→ acme"},
+	}
+	for _, tc := range cases {
+		if got := TargetNotice(tc.app, tc.command, &tc.cli); got != tc.want {
+			t.Errorf("TargetNotice(%s, %q) = %q, want %q", tc.app.Account.Name, tc.command, got, tc.want)
+		}
+	}
+}
+
+func TestExplainErrorAddsLoginHintOn401(t *testing.T) {
+	app := &App{Account: &config.Account{BaseURL: "https://app.chatwoot.com", ID: 1, UserName: "Shivam"}}
+	err := ExplainError(app, fmt.Errorf("list: %w", &sdk.APIError{StatusCode: 401, Body: "Invalid token"}))
+	for _, want := range []string{"rejected", "Shivam", "app.chatwoot.com", "chatwoot auth login https://app.chatwoot.com"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q missing %q", err, want)
+		}
+	}
+
+	other := errors.New("boom")
+	if ExplainError(app, other) != other {
+		t.Fatal("non-401 errors must pass through unchanged")
+	}
+	if ExplainError(&App{}, &sdk.APIError{StatusCode: 401}) == nil {
+		t.Fatal("an app without an account must still return the error")
 	}
 }

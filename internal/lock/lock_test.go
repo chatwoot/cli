@@ -9,24 +9,24 @@ import (
 func TestAcquireConflictAndRelease(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "locks")
 
-	l1, err := acquireAt(dir, 42)
+	l1, err := acquireAt(dir, "", 42)
 	if err != nil {
 		t.Fatalf("first acquire: %v", err)
 	}
 
-	if _, err := acquireAt(dir, 42); !errors.Is(err, ErrLocked) {
+	if _, err := acquireAt(dir, "", 42); !errors.Is(err, ErrLocked) {
 		t.Fatalf("second acquire: want ErrLocked, got %v", err)
 	}
 
 	// A different conversation is unaffected.
-	l2, err := acquireAt(dir, 43)
+	l2, err := acquireAt(dir, "", 43)
 	if err != nil {
 		t.Fatalf("acquire other conversation: %v", err)
 	}
 	l2.Release()
 
 	l1.Release()
-	l3, err := acquireAt(dir, 42)
+	l3, err := acquireAt(dir, "", 42)
 	if err != nil {
 		t.Fatalf("reacquire after release: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestAcquireConflictAndRelease(t *testing.T) {
 }
 
 func TestReleaseIsIdempotent(t *testing.T) {
-	l, err := acquireAt(filepath.Join(t.TempDir(), "locks"), 1)
+	l, err := acquireAt(filepath.Join(t.TempDir(), "locks"), "", 1)
 	if err != nil {
 		t.Fatalf("acquire: %v", err)
 	}
@@ -42,4 +42,25 @@ func TestReleaseIsIdempotent(t *testing.T) {
 	l.Release() // must not panic
 	var nilLock *Lock
 	nilLock.Release() // nil receiver must be safe
+}
+
+// The same conversation ID on two accounts is two different conversations.
+func TestScopesDoNotConflict(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "locks")
+
+	prod, err := acquireAt(dir, "prod", 42)
+	if err != nil {
+		t.Fatalf("acquire prod: %v", err)
+	}
+	defer prod.Release()
+
+	staging, err := acquireAt(dir, "staging", 42)
+	if err != nil {
+		t.Fatalf("same id on another account must not conflict: %v", err)
+	}
+	defer staging.Release()
+
+	if _, err := acquireAt(dir, "prod", 42); !errors.Is(err, ErrLocked) {
+		t.Fatalf("same scope and id: want ErrLocked, got %v", err)
+	}
 }

@@ -21,6 +21,16 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// APIError is a non-2xx response from the Chatwoot API.
+type APIError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("API error %d: %s", e.StatusCode, e.Body)
+}
+
 type RawResponse struct {
 	StatusCode int
 	Status     string
@@ -104,7 +114,7 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error %d: %s", resp.StatusCode, output.SanitizeText(string(body)))
+		return &APIError{StatusCode: resp.StatusCode, Body: output.SanitizeText(string(body))}
 	}
 
 	if v == nil {
@@ -151,7 +161,7 @@ func (c *Client) doRaw(req *http.Request) (*RawResponse, error) {
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, output.SanitizeText(string(body)))
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: output.SanitizeText(string(body))}
 	}
 
 	return &RawResponse{

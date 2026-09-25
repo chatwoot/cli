@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chatwoot/cli/internal/config"
 	"github.com/chatwoot/cli/internal/lock"
 )
 
@@ -16,7 +17,7 @@ func TestConvMutationsFailWhenConversationLocked(t *testing.T) {
 	t.Setenv("USERPROFILE", home) // windows
 
 	const convID = 555
-	lk, err := lock.AcquireConversation(convID)
+	lk, err := lock.AcquireConversation(convLockScope(&App{}), convID)
 	if err != nil {
 		t.Fatalf("AcquireConversation: %v", err)
 	}
@@ -49,5 +50,24 @@ func TestConvMutationsFailWhenConversationLocked(t *testing.T) {
 				t.Errorf("error = %q, want lock-held message", err)
 			}
 		})
+	}
+}
+
+func TestConvLockScopeIsPerAccount(t *testing.T) {
+	prod := &App{Account: &config.Account{BaseURL: "https://app.chatwoot.com", ID: 1}}
+	prodAgain := &App{Account: &config.Account{BaseURL: "https://app.chatwoot.com/", ID: 1, Name: "renamed"}}
+	otherAccount := &App{Account: &config.Account{BaseURL: "https://app.chatwoot.com", ID: 2}}
+	staging := &App{Account: &config.Account{BaseURL: "https://staging.chatwoot.com", ID: 1}}
+
+	if convLockScope(prod) != convLockScope(prodAgain) {
+		t.Fatal("the same account must share a lock scope")
+	}
+	for name, other := range map[string]*App{"other account": otherAccount, "other instance": staging} {
+		if convLockScope(prod) == convLockScope(other) {
+			t.Fatalf("%s shares prod's lock scope", name)
+		}
+	}
+	if strings.ContainsAny(convLockScope(prod), "/:") {
+		t.Fatalf("scope %q must be safe in a file name", convLockScope(prod))
 	}
 }

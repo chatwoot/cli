@@ -23,20 +23,27 @@ type Lock struct {
 }
 
 // AcquireConversation takes an exclusive non-blocking lock for the given
-// conversation ID. It returns ErrLocked (wrapped) if another process holds it.
-func AcquireConversation(id int) (*Lock, error) {
+// conversation ID. Conversation IDs are only unique within an account, so scope
+// names the account (a file-name-safe token); an empty scope is the
+// single-account lock used before multi-account support. It returns ErrLocked
+// (wrapped) if another process holds it.
+func AcquireConversation(scope string, id int) (*Lock, error) {
 	cfgDir, err := config.ConfigDir()
 	if err != nil {
 		return nil, err
 	}
-	return acquireAt(filepath.Join(cfgDir, "locks"), id)
+	return acquireAt(filepath.Join(cfgDir, "locks"), scope, id)
 }
 
-func acquireAt(dir string, id int) (*Lock, error) {
+func acquireAt(dir, scope string, id int) (*Lock, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	path := filepath.Join(dir, fmt.Sprintf("conv-%d.lock", id))
+	name := fmt.Sprintf("conv-%d.lock", id)
+	if scope != "" {
+		name = fmt.Sprintf("conv-%s-%d.lock", scope, id)
+	}
+	path := filepath.Join(dir, name)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, err
