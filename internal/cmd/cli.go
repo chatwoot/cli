@@ -39,8 +39,10 @@ type CLI struct {
 	Api    ApiCmd    `cmd:"" help:"Make an HTTP request to the Chatwoot API."`
 
 	// Setup.
-	Auth   AuthCmd   `cmd:"" help:"Login, logout, and status."`
-	Config ConfigCmd `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
+	Accounts AccountsCmd `cmd:"" help:"List, refresh, or rename your accounts."`
+	Use      UseCmd      `cmd:"" help:"Set the default account."`
+	Auth     AuthCmd     `cmd:"" help:"Login, logout, and status."`
+	Config   ConfigCmd   `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
 
 	Completion kongcompletion.Completion `cmd:"" help:"Print shell completion setup."`
 	Version    VersionCmd                `cmd:"" help:"Print the CLI version."`

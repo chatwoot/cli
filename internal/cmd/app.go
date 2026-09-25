@@ -56,7 +56,7 @@ func NewApp(cli *CLI, skipAuth bool, version string) (*App, error) {
 		return nil, fmt.Errorf("not authenticated. Run 'chatwoot auth login' to set up credentials")
 	}
 
-	acct, err := cfg.Resolve(cli.Account)
+	acct, err := resolveAccount(cfg, cli.Account)
 	if err != nil {
 		return nil, err
 	}

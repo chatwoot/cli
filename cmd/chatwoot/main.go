@@ -62,6 +62,8 @@ func main() {
 	// "not logged in" gracefully.
 	cmdStr := ctx.Command()
 	skipAuth := strings.HasPrefix(cmdStr, "auth") ||
+		strings.HasPrefix(cmdStr, "accounts") ||
+		strings.HasPrefix(cmdStr, "use") ||
 		strings.HasPrefix(cmdStr, "config") ||
 		strings.HasPrefix(cmdStr, "completion") ||
 		cmdStr == "me" ||

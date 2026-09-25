@@ -111,3 +111,15 @@ func TestPrintTableJSONPreservesRawValues(t *testing.T) {
 		t.Fatalf("json output should preserve raw API values with JSON escaping:\n%s", got)
 	}
 }
+
+func TestPrintDetailAlignsValues(t *testing.T) {
+	var out bytes.Buffer
+	p := NewPrinter("text", false, false)
+	p.Writer = &out
+	p.PrintDetail([]KeyValue{{Key: "ID", Value: "1"}, {Key: "Availability", Value: "online"}})
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 || strings.Index(lines[0], "1") != strings.Index(lines[1], "online") {
+		t.Fatalf("values not aligned:\n%s", out.String())
+	}
+}

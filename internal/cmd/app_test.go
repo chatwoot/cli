@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chatwoot/cli/internal/config"
+	"github.com/chatwoot/cli/internal/sdk"
 )
 
 // writeV1Config writes a config file in the format used before multi-account
@@ -90,6 +91,10 @@ func TestNewAppWithoutConfigAsksToLogIn(t *testing.T) {
 // saveTwoLogins registers accounts on two instances with separate tokens.
 func saveTwoLogins(t *testing.T) *config.Config {
 	t.Helper()
+	// These instances are real domains; an unknown-name refresh must never
+	// reach them from a test.
+	fetchProfile = func(*sdk.Client) (*sdk.ProfileResponse, error) { return nil, errors.New("offline") }
+	t.Cleanup(func() { fetchProfile = func(c *sdk.Client) (*sdk.ProfileResponse, error) { return c.Profile().Get() } })
 	cfg := &config.Config{}
 	cfg.SyncAccounts("https://app.chatwoot.com", 7, "Shivam", []config.Membership{{ID: 1, Name: "Chatwoot"}, {ID: 42, Name: "Acme"}})
 	cfg.SyncAccounts("https://staging.chatwoot.com", 3, "Shivam", []config.Membership{{ID: 1, Name: "Chatwoot"}})

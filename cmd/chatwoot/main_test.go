@@ -248,3 +248,39 @@ func TestAssignMeAccountOverrideSmoke(t *testing.T) {
 		t.Fatalf("default account = %#v, want original account 1 with fetched user 77", def)
 	}
 }
+
+func TestParseAccountsCommands(t *testing.T) {
+	cases := []struct {
+		args        []string
+		wantCommand string
+		check       func(*cmd.CLI) bool
+	}{
+		{[]string{"accounts"}, "accounts list", func(c *cmd.CLI) bool { return !c.Accounts.List.Refresh }},
+		{[]string{"accounts", "--refresh"}, "accounts list", func(c *cmd.CLI) bool { return c.Accounts.List.Refresh }},
+		{[]string{"accounts", "rename", "a", "b"}, "accounts rename <old> <new>", func(c *cmd.CLI) bool {
+			return c.Accounts.Rename.Old == "a" && c.Accounts.Rename.New == "b"
+		}},
+		{[]string{"use", "acme"}, "use <name>", func(c *cmd.CLI) bool { return c.Use.Name == "acme" }},
+		{[]string{"use"}, "use", func(c *cmd.CLI) bool { return c.Use.Name == "" }},
+		{[]string{"auth", "login", "staging.chatwoot.com"}, "auth login <url>", func(c *cmd.CLI) bool {
+			return c.Auth.Login.URL == "staging.chatwoot.com"
+		}},
+		{[]string{"auth", "logout", "staging.chatwoot.com"}, "auth logout <url>", func(c *cmd.CLI) bool {
+			return c.Auth.Logout.URL == "staging.chatwoot.com"
+		}},
+	}
+	for _, tc := range cases {
+		var cli cmd.CLI
+		parser, err := newParser(&cli)
+		if err != nil {
+			t.Fatalf("newParser: %v", err)
+		}
+		ctx, err := parser.Parse(normalizeArgs(tc.args))
+		if err != nil {
+			t.Fatalf("Parse(%v): %v", tc.args, err)
+		}
+		if ctx.Command() != tc.wantCommand || !tc.check(&cli) {
+			t.Errorf("Parse(%v) = %q, want %q with expected fields", tc.args, ctx.Command(), tc.wantCommand)
+		}
+	}
+}
