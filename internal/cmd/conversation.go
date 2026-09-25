@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/chatwoot/cli/internal/config"
 	"github.com/chatwoot/cli/internal/lock"
 	"github.com/chatwoot/cli/internal/output"
 	"github.com/chatwoot/cli/internal/sdk"
@@ -193,8 +194,8 @@ func (c *ConvMessagesCmd) Run(app *App) error {
 // process holds the lock, it fails fast instead of waiting: a queued duplicate
 // would still fire after the holder finishes, which is exactly what the lock
 // exists to prevent.
-func withConvLock(id int, fn func() error) error {
-	lk, err := lock.AcquireConversation(id)
+func withConvLock(app *App, id int, fn func() error) error {
+	lk, err := lock.AcquireConversation(convLockScope(app), id)
 	if err != nil {
 		if errors.Is(err, lock.ErrLocked) {
 			return fmt.Errorf("conversation %d: another chatwoot command is already running on this conversation; try again in a moment", id)
@@ -203,6 +204,16 @@ func withConvLock(id int, fn func() error) error {
 	}
 	defer lk.Release()
 	return fn()
+}
+
+// convLockScope names the account a conversation lock belongs to, since the
+// same conversation ID on two accounts is two different conversations.
+func convLockScope(app *App) string {
+	if app == nil || app.Account == nil {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s#%d", strings.TrimRight(app.Account.BaseURL, "/"), app.Account.ID)))
+	return hex.EncodeToString(sum[:6])
 }
 
 // -- reply --------------------------------------------------------------------
@@ -214,7 +225,7 @@ type ConvReplyCmd struct {
 }
 
 func (c *ConvReplyCmd) Run(app *App) error {
-	return withConvLock(c.ID, func() error {
+	return withConvLock(app, c.ID, func() error {
 		msg, err := app.Client.Messages(c.ID).Create(c.Text, c.Private)
 		if err != nil {
 			return err
@@ -239,7 +250,7 @@ type ConvResolveCmd struct {
 }
 
 func (c *ConvResolveCmd) Run(app *App) error {
-	return withConvLock(c.ID, func() error {
+	return withConvLock(app, c.ID, func() error {
 		return setStatus(app, c.ID, "resolved", nil)
 	})
 }
@@ -249,7 +260,7 @@ type ConvOpenCmd struct {
 }
 
 func (c *ConvOpenCmd) Run(app *App) error {
-	return withConvLock(c.ID, func() error {
+	return withConvLock(app, c.ID, func() error {
 		return setStatus(app, c.ID, "open", nil)
 	})
 }
@@ -259,7 +270,7 @@ type ConvPendingCmd struct {
 }
 
 func (c *ConvPendingCmd) Run(app *App) error {
-	return withConvLock(c.ID, func() error {
+	return withConvLock(app, c.ID, func() error {
 		return setStatus(app, c.ID, "pending", nil)
 	})
 }
@@ -278,7 +289,7 @@ func (c *ConvSnoozeCmd) Run(app *App) error {
 		}
 		until = &ts
 	}
-	return withConvLock(c.ID, func() error {
+	return withConvLock(app, c.ID, func() error {
 		return setStatus(app, c.ID, "snoozed", until)
 	})
 }
@@ -348,7 +359,7 @@ func (c *ConvAssignCmd) Run(app *App) error {
 	// a lock conflict must surface before any request, not as a masked lookup
 	// error or a delayed failure.
 	var agentPtr *int
-	if err := withConvLock(c.ID, func() error {
+	if err := withConvLock(app, c.ID, func() error {
 		if c.Agent != "" {
 			id, err := resolveAgent(app, c.Agent)
 			if err != nil {
@@ -381,7 +392,7 @@ type ConvUnassignCmd struct {
 }
 
 func (c *ConvUnassignCmd) Run(app *App) error {
-	if err := withConvLock(c.ID, func() error {
+	if err := withConvLock(app, c.ID, func() error {
 		return app.Client.Conversations().Unassign(c.ID)
 	}); err != nil {
 		return err
@@ -410,7 +421,7 @@ func (c *ConvLabelCmd) Run(app *App) error {
 			}
 		}
 	}
-	if err := withConvLock(c.ID, func() error {
+	if err := withConvLock(app, c.ID, func() error {
 		_, err := app.Client.Labels(c.ID).Add(flat)
 		return err
 	}); err != nil {
@@ -436,7 +447,7 @@ func (c *ConvPriorityCmd) Run(app *App) error {
 	if value == "none" {
 		value = ""
 	}
-	if err := withConvLock(c.ID, func() error {
+	if err := withConvLock(app, c.ID, func() error {
 		return app.Client.Conversations().UpdatePriority(c.ID, value)
 	}); err != nil {
 		return err
@@ -480,17 +491,14 @@ func resolveAgent(app *App, ref string) (int, error) {
 		return 0, fmt.Errorf("agent reference required")
 	}
 	if strings.EqualFold(ref, "me") {
-		if app.Config != nil && app.Config.UserID != 0 {
-			return app.Config.UserID, nil
+		if app.Account != nil && app.Account.UserID != 0 {
+			return app.Account.UserID, nil
 		}
 		profile, err := app.Client.Profile().Get()
 		if err != nil {
 			return 0, fmt.Errorf("cannot resolve 'me': %w", err)
 		}
-		if app.Config != nil {
-			app.Config.UserID = profile.ID
-			_ = config.Save(app.Config)
-		}
+		app.rememberUserID(profile.ID)
 		return profile.ID, nil
 	}
 	if id, err := strconv.Atoi(ref); err == nil {

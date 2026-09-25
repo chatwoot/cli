@@ -8,7 +8,8 @@ import (
 	"time"
 )
 
-const latestReleaseURL = "https://api.github.com/repos/chatwoot/cli/releases/latest"
+// latestReleaseURL is where `version --check` looks; swapped in tests.
+var latestReleaseURL = "https://api.github.com/repos/chatwoot/cli/releases/latest"
 
 // VersionCmd is `chatwoot version` — prints the CLI version. Equivalent to
 // the `--version` flag, exposed as a subcommand for discoverability.

@@ -13,7 +13,7 @@ import (
 //   - `conv 123` is shorthand for `conv view 123` (default subcommand).
 type CLI struct {
 	Output  string `short:"o" default:"text" enum:"text,json,csv" help:"Output format."`
-	Account int    `short:"a" help:"Override account ID."`
+	Account string `short:"a" env:"CHATWOOT_ACCOUNT" placeholder:"NAME" help:"Account to use: a name from 'chatwoot accounts' (or @name), or an account ID."`
 	Quiet   bool   `short:"q" help:"Print only IDs."`
 	NoColor bool   `help:"Disable colored output."`
 	Verbose bool   `short:"v" help:"Show request/response details."`
@@ -39,8 +39,10 @@ type CLI struct {
 	Api    ApiCmd    `cmd:"" help:"Make an HTTP request to the Chatwoot API."`
 
 	// Setup.
-	Auth   AuthCmd   `cmd:"" help:"Login, logout, and status."`
-	Config ConfigCmd `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
+	Accounts AccountsCmd `cmd:"" help:"List, refresh, or rename your accounts."`
+	Use      UseCmd      `cmd:"" help:"Set the default account."`
+	Auth     AuthCmd     `cmd:"" help:"Login, logout, and status."`
+	Config   ConfigCmd   `cmd:"" aliases:"cfg" help:"Manage CLI configuration."`
 
 	Completion kongcompletion.Completion `cmd:"" help:"Print shell completion setup."`
 	Version    VersionCmd                `cmd:"" help:"Print the CLI version."`

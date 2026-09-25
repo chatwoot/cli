@@ -83,7 +83,7 @@ func (p *Printer) PrintDetail(pairs []KeyValue) {
 	}
 
 	for _, kv := range pairs {
-		_, _ = fmt.Fprintf(p.Writer, "%-*s  %s\n", maxKey, kv.Key+":", SanitizeText(kv.Value))
+		_, _ = fmt.Fprintf(p.Writer, "%-*s  %s\n", maxKey+1, kv.Key+":", SanitizeText(kv.Value))
 	}
 }
 

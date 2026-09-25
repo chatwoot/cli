@@ -21,6 +21,20 @@ func setupTestEnv(t *testing.T) {
 	t.Setenv(config.APIKeyEnv, "test-token")
 }
 
+// saveTestConfig saves a config holding one account, made the default. The
+// account is named "test" unless the fixture names it.
+func saveTestConfig(t *testing.T, acct config.Account) *config.Config {
+	t.Helper()
+	if acct.Name == "" {
+		acct.Name = "test"
+	}
+	cfg := &config.Config{Default: acct.Name, Accounts: []config.Account{acct}}
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+	return cfg
+}
+
 func TestAssignMeWithAccountOverrideDoesNotPersistOverride(t *testing.T) {
 	setupTestEnv(t)
 
@@ -49,11 +63,9 @@ func TestAssignMeWithAccountOverrideDoesNotPersistOverride(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 
-	app, err := NewApp(&CLI{Output: "text", Account: 2}, false, "test")
+	app, err := NewApp(&CLI{Output: "text", Account: "2"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
 	}
@@ -72,11 +84,12 @@ func TestAssignMeWithAccountOverrideDoesNotPersistOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
 	}
-	if post.AccountID != 1 {
-		t.Fatalf("persisted account_id = %d, want original account 1", post.AccountID)
+	def := post.DefaultAccount()
+	if def.ID != 1 {
+		t.Fatalf("persisted account id = %d, want original account 1", def.ID)
 	}
-	if post.UserID != 99 {
-		t.Fatalf("persisted user_id = %d, want fetched profile user 99", post.UserID)
+	if def.UserID != 99 {
+		t.Fatalf("persisted user_id = %d, want fetched profile user 99", def.UserID)
 	}
 }
 
@@ -99,9 +112,7 @@ func TestConvContactFetchesSenderContact(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
@@ -132,9 +143,7 @@ func TestConvContactErrorsWhenNoSender(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
@@ -185,9 +194,7 @@ func TestConvStatusVerbsCallToggleStatus(t *testing.T) {
 			}))
 			defer server.Close()
 
-			if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-				t.Fatalf("config.Save: %v", err)
-			}
+			saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 			app, err := NewApp(&CLI{Output: "text"}, false, "test")
 			if err != nil {
 				t.Fatalf("NewApp: %v", err)
@@ -221,9 +228,7 @@ func TestConvUnassignPostsZeroAssignee(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)

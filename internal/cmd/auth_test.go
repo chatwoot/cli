@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -38,10 +39,7 @@ func setupAuthStatusEnv(t *testing.T, profileBody string) func() {
 		_, _ = w.Write([]byte(profileBody))
 	}))
 
-	cfg := &config.Config{BaseURL: server.URL, AccountID: 1}
-	if err := config.Save(cfg); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 	t.Setenv(config.APIKeyEnv, "test-token")
 
 	return server.Close
@@ -65,13 +63,10 @@ func setupAuthStatusKeyring(t *testing.T, profileBody string) func() {
 		_, _ = w.Write([]byte(profileBody))
 	}))
 
-	cfg := &config.Config{BaseURL: server.URL, AccountID: 1}
-	if err := config.Save(cfg); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
-	if err := config.SaveAPIKey(cfg, "test-token"); err != nil {
-		t.Fatalf("config.SaveAPIKey: %v", err)
-	}
+	// An account saved before its user ID was known, authenticated by the
+	// keyring entry written by earlier releases.
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
+	seedV1Keyring(t, server.URL, 1, "test-token")
 
 	return server.Close
 }
@@ -203,7 +198,7 @@ func TestAuthLogoutRemovesKeyringTokenWithoutConfig(t *testing.T) {
 	// Seed the token through the production path so it lands under whichever
 	// keyring service the active build profile uses (prod vs dev), without
 	// writing config.yaml — this exercises logout with no config present.
-	seed := &config.Config{BaseURL: "https://app.chatwoot.com", AccountID: 1}
+	seed := &config.Account{BaseURL: "https://app.chatwoot.com", ID: 1, UserID: 5}
 	if err := config.SaveAPIKey(seed, "stale-token"); err != nil {
 		t.Fatalf("SaveAPIKey: %v", err)
 	}
@@ -231,8 +226,8 @@ func TestAuthStatusSelfHealsCachedUserID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load (pre): %v", err)
 	}
-	if pre.UserID != 0 {
-		t.Fatalf("setup: expected UserID=0, got %d", pre.UserID)
+	if pre.DefaultAccount().UserID != 0 {
+		t.Fatalf("setup: expected UserID=0, got %d", pre.DefaultAccount().UserID)
 	}
 
 	_ = runAndCapture(t, (&AuthStatusCmd{}).Run)
@@ -241,8 +236,8 @@ func TestAuthStatusSelfHealsCachedUserID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load (post): %v", err)
 	}
-	if post.UserID != 99 {
-		t.Fatalf("expected UserID=99 cached after auth status, got %d", post.UserID)
+	if post.DefaultAccount().UserID != 99 {
+		t.Fatalf("expected UserID=99 cached after auth status, got %d", post.DefaultAccount().UserID)
 	}
 }
 
@@ -260,7 +255,7 @@ func TestAuthStatusDoesNotCacheUserIDFromEnvironmentToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load (pre): %v", err)
 	}
-	cfg.UserID = 42
+	cfg.DefaultAccount().UserID = 42
 	if err := config.Save(cfg); err != nil {
 		t.Fatalf("config.Save: %v", err)
 	}
@@ -271,59 +266,175 @@ func TestAuthStatusDoesNotCacheUserIDFromEnvironmentToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load (post): %v", err)
 	}
-	if post.UserID != 42 {
-		t.Fatalf("expected env-token auth status to preserve cached UserID=42, got %d", post.UserID)
+	if post.DefaultAccount().UserID != 42 {
+		t.Fatalf("expected env-token auth status to preserve cached UserID=42, got %d", post.DefaultAccount().UserID)
 	}
 }
 
-// TestAuthLoginVerifiesAccountAccess drives the full `auth login` flow (stdin →
-// profile fetch → membership check → persist) to cover the wiring, not just the
-// verifyAccountAccess helper.
-func TestAuthLoginVerifiesAccountAccess(t *testing.T) {
-	profileBody := `{"id":5,"name":"Eve","email":"eve@example.com","availability_status":"online","role":"agent",` +
-		`"accounts":[{"id":7,"name":"Acme","role":"administrator"},{"id":9,"name":"Beta","role":"agent"}]}`
+const loginProfileBody = `{"id":5,"name":"Eve","email":"eve@example.com","availability_status":"online","role":"agent",` +
+	`"accounts":[{"id":7,"name":"Acme","role":"administrator"},{"id":9,"name":"Beta","role":"agent"}]}`
 
-	t.Run("rejects an account the token cannot access", func(t *testing.T) {
-		server := loginProfileServer(t, profileBody)
-		defer server.Close()
-		isolateAuthEnv(t)
+// TestAuthLoginRegistersEveryAccount drives the full `auth login` flow (stdin →
+// profile fetch → account discovery → persist).
+func TestAuthLoginRegistersEveryAccount(t *testing.T) {
+	server := loginProfileServer(t, loginProfileBody)
+	defer server.Close()
+	isolateAuthEnv(t)
 
-		err := runLogin(t, server.URL+"\ntoken\n42\n")
-		if err == nil {
-			t.Fatal("expected login to fail for an inaccessible account")
-		}
-		for _, want := range []string{"42", "Acme", "Beta"} {
-			if !strings.Contains(err.Error(), want) {
-				t.Fatalf("error %q should name entered + accessible accounts", err.Error())
-			}
-		}
-		// Nothing must be persisted when login is rejected.
-		if cfg, _ := config.Load(); cfg != nil {
-			t.Fatalf("config was saved despite a rejected login: %#v", cfg)
-		}
-	})
+	// URL, token, then Enter to accept the first account as the default.
+	out, err := runLogin(t, &AuthLoginCmd{}, server.URL+"\ntoken\n\n")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
 
-	t.Run("accepts a member account and persists config + key", func(t *testing.T) {
-		server := loginProfileServer(t, profileBody)
-		defer server.Close()
-		isolateAuthEnv(t)
-
-		if err := runLogin(t, server.URL+"\ntoken\n7\n"); err != nil {
-			t.Fatalf("login: %v", err)
-		}
-
-		cfg, err := config.Load()
-		if err != nil || cfg == nil {
-			t.Fatalf("config not saved: cfg=%#v err=%v", cfg, err)
-		}
-		if cfg.AccountID != 7 || cfg.UserID != 5 {
-			t.Fatalf("saved cfg = %#v, want AccountID 7, UserID 5", cfg)
-		}
-		apiKey, source, err := config.ResolveAPIKey(cfg)
+	cfg, err := config.Load()
+	if err != nil || cfg == nil {
+		t.Fatalf("config not saved: cfg=%#v err=%v", cfg, err)
+	}
+	acme, beta := cfg.Find("acme"), cfg.Find("beta")
+	if acme == nil || acme.ID != 7 || acme.UserID != 5 || beta == nil || beta.ID != 9 {
+		t.Fatalf("accounts = %#v, want acme #7 and beta #9 for user 5", cfg.Accounts)
+	}
+	if cfg.Default != "acme" {
+		t.Fatalf("default = %q, want acme (first account)", cfg.Default)
+	}
+	for _, acct := range []*config.Account{acme, beta} {
+		apiKey, source, err := config.ResolveAPIKey(acct)
 		if err != nil || apiKey != "token" || source != config.CredentialSourceKeyring {
-			t.Fatalf("ResolveAPIKey = (%q, %v, %v), want token/keyring", apiKey, source, err)
+			t.Fatalf("ResolveAPIKey(%s) = (%q, %v, %v), want token/keyring", acct.Name, apiKey, source, err)
 		}
-	})
+	}
+	for _, want := range []string{"Logged in as Eve", "Found 2 accounts", "acme", "#7", "beta", "#9", "Default set to acme"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("login output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestAuthLoginAsksForDefaultAccount(t *testing.T) {
+	server := loginProfileServer(t, loginProfileBody)
+	defer server.Close()
+	isolateAuthEnv(t)
+
+	if _, err := runLogin(t, &AuthLoginCmd{}, server.URL+"\ntoken\nbeta\n"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if cfg, _ := config.Load(); cfg.Default != "beta" {
+		t.Fatalf("default = %q, want beta", cfg.Default)
+	}
+}
+
+// A pasted dashboard link names the account, so no prompt is needed.
+func TestAuthLoginURLArgumentWithAccountSetsDefault(t *testing.T) {
+	server := loginProfileServer(t, loginProfileBody)
+	defer server.Close()
+	isolateAuthEnv(t)
+
+	cmd := &AuthLoginCmd{URL: server.URL + "/app/accounts/9/conversations/1"}
+	if _, err := runLogin(t, cmd, "token\n"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	cfg, _ := config.Load()
+	if cfg.Default != "beta" || cfg.Find("beta").BaseURL != server.URL {
+		t.Fatalf("default = %q (%#v), want beta on %s", cfg.Default, cfg.Find("beta"), server.URL)
+	}
+}
+
+func TestAuthLoginRejectsInaccessibleAccountInURL(t *testing.T) {
+	server := loginProfileServer(t, loginProfileBody)
+	defer server.Close()
+	isolateAuthEnv(t)
+
+	_, err := runLogin(t, &AuthLoginCmd{URL: server.URL + "/app/accounts/42"}, "token\n")
+	if err == nil {
+		t.Fatal("expected login to fail for an inaccessible account")
+	}
+	for _, want := range []string{"42", "Acme", "Beta"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q should name entered + accessible accounts", err.Error())
+		}
+	}
+	// Nothing must be persisted when login is rejected.
+	if cfg, _ := config.Load(); cfg != nil {
+		t.Fatalf("config was saved despite a rejected login: %#v", cfg)
+	}
+}
+
+func TestAuthLoginSingleAccountNeedsNoPrompt(t *testing.T) {
+	server := loginProfileServer(t, `{"id":5,"name":"Eve","accounts":[{"id":7,"name":"Acme"}]}`)
+	defer server.Close()
+	isolateAuthEnv(t)
+
+	if _, err := runLogin(t, &AuthLoginCmd{URL: server.URL}, "token\n"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if cfg, _ := config.Load(); cfg.Default != "acme" {
+		t.Fatalf("default = %q, want acme", cfg.Default)
+	}
+}
+
+// Older Chatwoot versions omit the accounts list; fall back to asking.
+func TestAuthLoginAsksForAccountIDWhenProfileHasNoAccounts(t *testing.T) {
+	server := loginProfileServer(t, `{"id":5,"name":"Eve"}`)
+	defer server.Close()
+	isolateAuthEnv(t)
+
+	if _, err := runLogin(t, &AuthLoginCmd{URL: server.URL}, "token\n7\n"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	cfg, _ := config.Load()
+	def := cfg.DefaultAccount()
+	if def == nil || def.ID != 7 || def.UserID != 5 {
+		t.Fatalf("default = %#v, want account 7 for user 5", def)
+	}
+}
+
+// Logging in to a second instance adds its accounts and keeps the default.
+func TestAuthLoginSecondInstanceKeepsDefault(t *testing.T) {
+	isolateAuthEnv(t)
+	app := loginProfileServer(t, loginProfileBody)
+	defer app.Close()
+	staging := loginProfileServer(t, `{"id":3,"name":"Eve","accounts":[{"id":7,"name":"Acme"}]}`)
+	defer staging.Close()
+
+	if _, err := runLogin(t, &AuthLoginCmd{URL: app.URL}, "token\n\n"); err != nil {
+		t.Fatalf("first login: %v", err)
+	}
+	out, err := runLogin(t, &AuthLoginCmd{URL: staging.URL}, "staging-token\n")
+	if err != nil {
+		t.Fatalf("second login: %v", err)
+	}
+
+	cfg, _ := config.Load()
+	if cfg.Default != "acme" {
+		t.Fatalf("default = %q, want the first login's acme kept", cfg.Default)
+	}
+	second := cfg.FindByID(staging.URL, 3, 7)
+	if second == nil || second.Name == "acme" {
+		t.Fatalf("staging account = %#v, want a qualified name", second)
+	}
+	if !strings.Contains(out, second.Name) {
+		t.Fatalf("output should list %s:\n%s", second.Name, out)
+	}
+	if key, _, _ := config.ResolveAPIKey(second); key != "staging-token" {
+		t.Fatalf("staging token = %q, want staging-token", key)
+	}
+	if key, _, _ := config.ResolveAPIKey(cfg.Find("acme")); key != "token" {
+		t.Fatalf("first login token = %q, want token", key)
+	}
+}
+
+// seedV1Keyring writes the keyring entry format used before multi-account
+// support, as an upgrading user would have it.
+func seedV1Keyring(t *testing.T, baseURL string, accountID int, apiKey string) {
+	t.Helper()
+	data, err := json.Marshal(map[string]any{"base_url": baseURL, "account_id": accountID, "api_key": apiKey})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if err := keyring.Set("chatwoot-cli", "api-key", string(data)); err != nil {
+		t.Fatalf("keyring.Set: %v", err)
+	}
 }
 
 // isolateAuthEnv gives a test its own HOME + mocked keyring and clears the
@@ -351,8 +462,9 @@ func loginProfileServer(t *testing.T, body string) *httptest.Server {
 }
 
 // runLogin feeds scripted answers to the interactive login prompts via os.Stdin
-// and silences the prompt/banner output, returning the command's error.
-func runLogin(t *testing.T, stdin string) error {
+// and returns everything the command printed, plus its error. When run is
+// given, it runs instead of cmd (for flows that log in along the way).
+func runLogin(t *testing.T, cmd *AuthLoginCmd, stdin string, run ...func() error) (string, error) {
 	t.Helper()
 
 	r, w, err := os.Pipe()
@@ -364,19 +476,86 @@ func runLogin(t *testing.T, stdin string) error {
 	}
 	_ = w.Close()
 
-	devnull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	stdout, err := os.CreateTemp(t.TempDir(), "stdout")
 	if err != nil {
-		t.Fatalf("open devnull: %v", err)
+		t.Fatalf("CreateTemp: %v", err)
 	}
 
 	oldStdin, oldStdout := os.Stdin, os.Stdout
-	os.Stdin, os.Stdout = r, devnull
+	os.Stdin, os.Stdout = r, stdout
 	defer func() {
 		os.Stdin, os.Stdout = oldStdin, oldStdout
 		_ = r.Close()
-		_ = devnull.Close()
+		_ = stdout.Close()
 	}()
 
 	printer := output.NewPrinter("text", false, false)
-	return (&AuthLoginCmd{}).Run(&App{Printer: printer})
+	printer.Writer = stdout
+	var runErr error
+	if len(run) > 0 {
+		runErr = run[0]()
+	} else {
+		runErr = cmd.Run(&App{Printer: printer})
+	}
+	out, _ := os.ReadFile(stdout.Name())
+	return string(out), runErr
+}
+
+// On Chatwoot versions whose profile has no accounts list, each login adds the
+// account the user typed without removing the ones added before.
+func TestAuthLoginWithoutAccountsListKeepsEarlierAccounts(t *testing.T) {
+	server := loginProfileServer(t, `{"id":5,"name":"Eve"}`)
+	defer server.Close()
+	isolateAuthEnv(t)
+
+	if _, err := runLogin(t, &AuthLoginCmd{URL: server.URL}, "token\n7\n"); err != nil {
+		t.Fatalf("first login: %v", err)
+	}
+	cfg, _ := config.Load()
+	first := cfg.DefaultAccount()
+	first.HelpCenter = config.HelpCenterConfig{DefaultPortalSlug: "docs"}
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+
+	if _, err := runLogin(t, &AuthLoginCmd{URL: server.URL}, "token\n9\n"); err != nil {
+		t.Fatalf("second login: %v", err)
+	}
+	cfg, _ = config.Load()
+	if cfg.FindByID(server.URL, 5, 7) == nil || cfg.FindByID(server.URL, 5, 9) == nil {
+		t.Fatalf("accounts = %#v, want both 7 and 9", cfg.Accounts)
+	}
+	def := cfg.DefaultAccount()
+	if def == nil || def.ID != 7 || def.HelpCenter.DefaultPortalSlug != "docs" {
+		t.Fatalf("default = %#v, want account 7 with its help center kept", def)
+	}
+}
+
+// An upgraded config whose user wasn't known and whose token is gone: logging
+// in on a Chatwoot version without an accounts list must fix the default
+// account, not add a second one beside it.
+func TestAuthLoginRepairsMigratedAccountOnOlderChatwoot(t *testing.T) {
+	server := loginProfileServer(t, `{"id":5,"name":"Eve"}`)
+	defer server.Close()
+	isolateAuthEnv(t)
+	writeV1Config(t, "base_url: "+server.URL+"\naccount_id: 7\n")
+
+	if _, err := NewApp(&CLI{Output: "text"}, false, "test"); err == nil {
+		t.Fatal("setup: expected no credentials before login")
+	}
+	if _, err := runLogin(t, &AuthLoginCmd{URL: server.URL}, "token\n7\n"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+
+	cfg, _ := config.Load()
+	if len(cfg.Accounts) != 1 {
+		t.Fatalf("accounts = %#v, want the migrated account only", cfg.Accounts)
+	}
+	app, err := NewApp(&CLI{Output: "text"}, false, "test")
+	if err != nil {
+		t.Fatalf("NewApp after login: %v", err)
+	}
+	if app.Client.AccountID != 7 || app.Client.APIKey != "token" {
+		t.Fatalf("client = #%d %q, want account 7 with the new token", app.Client.AccountID, app.Client.APIKey)
+	}
 }

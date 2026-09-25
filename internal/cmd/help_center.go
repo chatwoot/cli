@@ -61,11 +61,11 @@ type HCDefaultCmd struct {
 
 func (c *HCDefaultCmd) Run(app *App) error {
 	if c.Clear {
-		if app.Config == nil {
-			return fmt.Errorf("config is not loaded")
+		if !app.registered() {
+			return errUnregisteredAccount
 		}
-		app.Config.HelpCenter = config.HelpCenterConfig{}
-		if err := config.Save(app.Config); err != nil {
+		app.Account.HelpCenter = config.HelpCenterConfig{}
+		if err := saveConfig(app.Config); err != nil {
 			return err
 		}
 		_, _ = fmt.Fprintln(app.Printer.Writer, "Cleared default help center.")
@@ -81,20 +81,20 @@ func (c *HCDefaultCmd) Run(app *App) error {
 		return err
 	}
 
-	if app.Config == nil {
-		return fmt.Errorf("config is not loaded")
+	if !app.registered() {
+		return errUnregisteredAccount
 	}
-	app.Config.HelpCenter = config.HelpCenterConfig{
+	app.Account.HelpCenter = config.HelpCenterConfig{
 		DefaultPortalSlug: portal.Slug,
 		DefaultLocale:     portalDefaultLocale(portal),
 	}
-	if err := config.Save(app.Config); err != nil {
+	if err := saveConfig(app.Config); err != nil {
 		return err
 	}
 
 	_, _ = fmt.Fprintf(app.Printer.Writer, "Default help center set to %s", portal.Slug)
-	if app.Config.HelpCenter.DefaultLocale != "" {
-		_, _ = fmt.Fprintf(app.Printer.Writer, " (%s)", app.Config.HelpCenter.DefaultLocale)
+	if app.Account.HelpCenter.DefaultLocale != "" {
+		_, _ = fmt.Fprintf(app.Printer.Writer, " (%s)", app.Account.HelpCenter.DefaultLocale)
 	}
 	_, _ = fmt.Fprintln(app.Printer.Writer)
 	return nil
@@ -193,18 +193,22 @@ func (c *HCArticleCmd) Run(app *App) error {
 }
 
 func renderHelpCenterDefault(app *App) error {
-	if app.Config == nil ||
-		strings.TrimSpace(app.Config.HelpCenter.DefaultPortalSlug) == "" {
+	if app.Account == nil ||
+		strings.TrimSpace(app.Account.HelpCenter.DefaultPortalSlug) == "" {
 		_, _ = fmt.Fprintln(app.Printer.Writer, "No default help center set.")
 		return nil
 	}
 
 	app.Printer.PrintDetail([]output.KeyValue{
-		{Key: "Portal", Value: app.Config.HelpCenter.DefaultPortalSlug},
-		{Key: "Locale", Value: app.Config.HelpCenter.DefaultLocale},
+		{Key: "Portal", Value: app.Account.HelpCenter.DefaultPortalSlug},
+		{Key: "Locale", Value: app.Account.HelpCenter.DefaultLocale},
 	})
 	return nil
 }
+
+// errUnregisteredAccount is returned when saving a per-account setting for an
+// ad-hoc `-a <id>` account that is not in the config.
+var errUnregisteredAccount = fmt.Errorf("this account is not registered; run 'chatwoot accounts --refresh' first")
 
 func findHelpCenterPortal(app *App, slug string) (sdk.HelpCenterPortal, error) {
 	slug = strings.TrimSpace(slug)
@@ -228,8 +232,8 @@ func resolveHelpCenterPortal(app *App, explicitPortal string) (string, error) {
 	if strings.TrimSpace(explicitPortal) != "" {
 		return strings.TrimSpace(explicitPortal), nil
 	}
-	if app.Config != nil && strings.TrimSpace(app.Config.HelpCenter.DefaultPortalSlug) != "" {
-		return strings.TrimSpace(app.Config.HelpCenter.DefaultPortalSlug), nil
+	if app.Account != nil && strings.TrimSpace(app.Account.HelpCenter.DefaultPortalSlug) != "" {
+		return strings.TrimSpace(app.Account.HelpCenter.DefaultPortalSlug), nil
 	}
 	return "", fmt.Errorf("no default help center set. Run 'chatwoot hc default <slug>' or pass --portal")
 }
@@ -238,8 +242,8 @@ func resolveHelpCenterLocale(app *App, explicitLocale string) (string, error) {
 	if strings.TrimSpace(explicitLocale) != "" {
 		return strings.TrimSpace(explicitLocale), nil
 	}
-	if app.Config != nil && strings.TrimSpace(app.Config.HelpCenter.DefaultLocale) != "" {
-		return strings.TrimSpace(app.Config.HelpCenter.DefaultLocale), nil
+	if app.Account != nil && strings.TrimSpace(app.Account.HelpCenter.DefaultLocale) != "" {
+		return strings.TrimSpace(app.Account.HelpCenter.DefaultLocale), nil
 	}
 	return "", fmt.Errorf("no default help center locale set. Pass --locale or reset the default with 'chatwoot hc default <slug>'")
 }
