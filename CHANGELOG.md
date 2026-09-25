@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-25
+
 ### Added
 
 - Per-conversation lock for all mutating `conv` verbs (`reply`, `resolve`, `open`, `pending`, `snooze`, `assign`, `unassign`, `label`, `priority`): concurrent mutations of the same conversation from separate terminals now fail fast instead of both running. Locks live in `~/.chatwoot/locks/` and are released automatically by the OS if the process dies.
-
-### Changed
 
 ### Fixed
 
@@ -127,7 +127,8 @@ First release. A CLI for Chatwoot that reads and writes the same Chatwoot API yo
 
 Install with `curl -fsSL https://chwt.app/install-cli | sh`, then `chatwoot auth login`.
 
-[Unreleased]: https://github.com/chatwoot/cli/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/chatwoot/cli/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/chatwoot/cli/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/chatwoot/cli/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/chatwoot/cli/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/chatwoot/cli/compare/v0.4.0...v0.5.0
