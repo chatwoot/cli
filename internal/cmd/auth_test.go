@@ -462,8 +462,9 @@ func loginProfileServer(t *testing.T, body string) *httptest.Server {
 }
 
 // runLogin feeds scripted answers to the interactive login prompts via os.Stdin
-// and returns everything the command printed, plus its error.
-func runLogin(t *testing.T, cmd *AuthLoginCmd, stdin string) (string, error) {
+// and returns everything the command printed, plus its error. When run is
+// given, it runs instead of cmd (for flows that log in along the way).
+func runLogin(t *testing.T, cmd *AuthLoginCmd, stdin string, run ...func() error) (string, error) {
 	t.Helper()
 
 	r, w, err := os.Pipe()
@@ -490,7 +491,12 @@ func runLogin(t *testing.T, cmd *AuthLoginCmd, stdin string) (string, error) {
 
 	printer := output.NewPrinter("text", false, false)
 	printer.Writer = stdout
-	runErr := cmd.Run(&App{Printer: printer})
+	var runErr error
+	if len(run) > 0 {
+		runErr = run[0]()
+	} else {
+		runErr = cmd.Run(&App{Printer: printer})
+	}
 	out, _ := os.ReadFile(stdout.Name())
 	return string(out), runErr
 }

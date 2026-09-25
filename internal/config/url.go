@@ -52,3 +52,67 @@ func DisplayHost(baseURL string) string {
 	}
 	return baseURL
 }
+
+// Link is a Chatwoot dashboard link resolved to the CLI resource it shows.
+type Link struct {
+	BaseURL   string
+	AccountID int
+	Noun      string // "conv", "contact", "inbox", or "" for other pages
+	ID        int
+}
+
+// ParseLink recognizes a full dashboard link (http(s)://…/app/accounts/<id>/…)
+// and maps it to a CLI noun: any …/conversations/<id> route (including inbox,
+// label, team, mention, and custom-view scoped ones), contacts/<id>, and
+// inbox/<id> or settings/inboxes/<id>.
+func ParseLink(raw string) (Link, bool) {
+	raw = strings.TrimSpace(raw)
+	if !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
+		return Link{}, false
+	}
+	baseURL, accountID, err := ParseInstanceURL(raw)
+	if err != nil || accountID == 0 {
+		return Link{}, false
+	}
+	link := Link{BaseURL: baseURL, AccountID: accountID}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return Link{}, false
+	}
+	_, after, _ := strings.Cut(u.Path, fmt.Sprintf("/app/accounts/%d", accountID))
+	segments := strings.Split(strings.Trim(after, "/"), "/")
+
+	idAfter := func(i int) int {
+		if i+1 < len(segments) {
+			if id, err := strconv.Atoi(segments[i+1]); err == nil && id > 0 {
+				return id
+			}
+		}
+		return 0
+	}
+	for i := len(segments) - 1; i >= 0; i-- {
+		if segments[i] == "conversations" {
+			if id := idAfter(i); id > 0 {
+				link.Noun, link.ID = "conv", id
+				return link, true
+			}
+		}
+	}
+	if len(segments) > 0 {
+		switch {
+		case segments[0] == "contacts" && idAfter(0) > 0:
+			link.Noun, link.ID = "contact", idAfter(0)
+		case segments[0] == "inbox" && idAfter(0) > 0:
+			link.Noun, link.ID = "inbox", idAfter(0)
+		case len(segments) > 1 && segments[0] == "settings" && segments[1] == "inboxes" && idAfter(1) > 0:
+			link.Noun, link.ID = "inbox", idAfter(1)
+		}
+	}
+	return link, true
+}
+
+// AccountSelector is the account part of the link, in the form Resolve takes.
+func (l Link) AccountSelector() string {
+	return fmt.Sprintf("%s/app/accounts/%d", l.BaseURL, l.AccountID)
+}

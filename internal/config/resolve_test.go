@@ -91,3 +91,33 @@ func TestResolveErrors(t *testing.T) {
 		t.Fatalf("nil config Resolve() error = %v, want ErrNoDefaultAccount", err)
 	}
 }
+
+func TestResolveLinkSelector(t *testing.T) {
+	cfg := resolveFixture()
+
+	got, err := cfg.Resolve(stagingURL + "/app/accounts/3")
+	if err != nil || got.Name != "qa-sandbox" {
+		t.Fatalf("Resolve(staging link) = (%#v, %v), want qa-sandbox", got, err)
+	}
+
+	// Two logins see app #42; the default's login wins.
+	got, err = cfg.Resolve(appURL + "/app/accounts/42/conversations/1")
+	if err != nil || got.Name != "acme" {
+		t.Fatalf("Resolve(app #42 link) = (%#v, %v), want acme", got, err)
+	}
+
+	// Known instance, unregistered account: unknown (a refresh may find it).
+	if _, err := cfg.Resolve(appURL + "/app/accounts/999"); !errors.Is(err, ErrUnknownAccount) {
+		t.Fatalf("Resolve(unknown account link) error = %v, want ErrUnknownAccount", err)
+	}
+
+	// Unknown instance: not logged in, carrying the instance to log in to.
+	_, err = cfg.Resolve("https://eu.chatwoot.com/app/accounts/5/conversations/88")
+	var notLoggedIn *NotLoggedInError
+	if !errors.As(err, &notLoggedIn) || notLoggedIn.BaseURL != "https://eu.chatwoot.com" {
+		t.Fatalf("Resolve(unknown instance) error = %v, want NotLoggedInError for eu.chatwoot.com", err)
+	}
+	if !strings.Contains(err.Error(), "chatwoot auth login https://eu.chatwoot.com") {
+		t.Fatalf("error %q should say how to log in", err)
+	}
+}

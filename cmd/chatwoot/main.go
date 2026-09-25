@@ -11,6 +11,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/chatwoot/cli/internal/cmd"
+	"github.com/chatwoot/cli/internal/config"
 	kongcompletion "github.com/jotaen/kong-completion"
 )
 
@@ -94,7 +95,48 @@ func newParser(cli *cmd.CLI) (*kong.Kong, error) {
 
 // normalizeArgs turns the user-facing grammar into what Kong parses.
 func normalizeArgs(args []string) []string {
-	return rewriteIDFirstGrammar(rewriteAccountShorthand(args))
+	return rewriteIDFirstGrammar(rewriteAccountShorthand(rewriteLink(args)))
+}
+
+// rewriteLink lets a pasted dashboard link stand in for the noun and id:
+// `chatwoot <conversation link> reply "hi"` becomes
+// `chatwoot --account=<its account> conv <id> reply "hi"`. The link names its
+// account, so it replaces any other account selector. A link to another page
+// only selects the account (listing conversations when nothing follows).
+func rewriteLink(args []string) []string {
+	i := nounIndex(args)
+	j := i
+	if j < len(args) && len(args[j]) > 1 && strings.HasPrefix(args[j], "@") {
+		j++
+	}
+	if j >= len(args) {
+		return args
+	}
+	link, ok := config.ParseLink(args[j])
+	if !ok {
+		return args
+	}
+
+	out := make([]string, 0, len(args)+2)
+	for k := 0; k < i; k++ {
+		switch {
+		case args[k] == "-a" || args[k] == "--account":
+			k++ // drop the flag and its value
+		case strings.HasPrefix(args[k], "--account="):
+		default:
+			out = append(out, args[k])
+		}
+	}
+	out = append(out, "--account="+link.AccountSelector())
+
+	rest := args[j+1:]
+	switch {
+	case link.Noun != "":
+		out = append(out, link.Noun, strconv.Itoa(link.ID))
+	case len(rest) == 0:
+		out = append(out, "convs")
+	}
+	return append(out, rest...)
 }
 
 // nounIndex returns the index of the first token that is not a global flag or

@@ -1,11 +1,16 @@
 package cmd
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/chatwoot/cli/internal/config"
 	"github.com/chatwoot/cli/internal/output"
 	"github.com/chatwoot/cli/internal/sdk"
+	"golang.org/x/term"
 )
 
 // App holds shared state passed to every command's Run method.
@@ -52,11 +57,18 @@ func NewApp(cli *CLI, skipAuth bool, version string) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg == nil || len(cfg.Accounts) == 0 {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	if len(cfg.Accounts) == 0 && !strings.Contains(cli.Account, "://") {
 		return nil, fmt.Errorf("not authenticated. Run 'chatwoot auth login' to set up credentials")
 	}
 
 	acct, err := resolveAccount(cfg, cli.Account)
+	var notLoggedIn *config.NotLoggedInError
+	if errors.As(err, &notLoggedIn) && isInteractive() {
+		cfg, acct, err = offerLogin(printer, cli.Account, notLoggedIn)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +93,34 @@ func NewApp(cli *CLI, skipAuth bool, version string) (*App, error) {
 		Selector: cli.Account,
 		Version:  version,
 	}, nil
+}
+
+var defaultIsInteractive = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
+// isInteractive reports whether prompts can be answered; swapped in tests.
+var isInteractive = defaultIsInteractive
+
+// offerLogin handles a pasted link to an instance with no saved login: it asks
+// to log in there, then resolves the link again so the command carries on.
+func offerLogin(printer *output.Printer, selector string, notLoggedIn *config.NotLoggedInError) (*config.Config, *config.Account, error) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("! You're not logged in to %s\n? Log in now? (Y/n) ", config.DisplayHost(notLoggedIn.BaseURL))
+	if answer := strings.ToLower(readLine(reader)); answer != "" && !strings.HasPrefix(answer, "y") {
+		return nil, nil, notLoggedIn
+	}
+
+	login := &AuthLoginCmd{URL: selector, reader: reader}
+	if err := login.Run(&App{Printer: printer}); err != nil {
+		return nil, nil, err
+	}
+	fmt.Println()
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	acct, err := cfg.Resolve(selector)
+	return cfg, acct, err
 }
 
 // registered reports whether the app's account is stored in the config, so

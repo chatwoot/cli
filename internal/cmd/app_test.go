@@ -164,3 +164,56 @@ func TestNewAppWithoutDefaultAccountExplainsHowToPick(t *testing.T) {
 		t.Fatalf("NewApp without a default = %v, want a hint to run chatwoot use", err)
 	}
 }
+
+func TestNewAppLinkToUnknownInstanceExplainsLogin(t *testing.T) {
+	isolateAuthEnv(t)
+	saveTwoLogins(t)
+	isInteractive = func() bool { return false }
+	t.Cleanup(func() { isInteractive = defaultIsInteractive })
+
+	_, err := NewApp(&CLI{Output: "text", Account: "https://eu.chatwoot.com/app/accounts/5"}, false, "test")
+	if err == nil || !strings.Contains(err.Error(), "chatwoot auth login https://eu.chatwoot.com") {
+		t.Fatalf("NewApp(unknown instance link) = %v, want a login hint", err)
+	}
+}
+
+// In a terminal, a link to an instance without a login offers to log in and
+// then carries on with the command.
+func TestNewAppLinkToUnknownInstanceOffersLogin(t *testing.T) {
+	isolateAuthEnv(t)
+	server := profileServer(t, 5, `[{"id":7,"name":"Acme"},{"id":9,"name":"Beta"}]`)
+	isInteractive = func() bool { return true }
+	t.Cleanup(func() { isInteractive = defaultIsInteractive })
+
+	var app *App
+	_, err := runLogin(t, nil, "y\ntoken\n", func() error {
+		var err error
+		app, err = NewApp(&CLI{Output: "text", Account: server.URL + "/app/accounts/9"}, false, "test")
+		return err
+	})
+	if err != nil {
+		t.Fatalf("NewApp after offered login: %v", err)
+	}
+	if app.Client.BaseURL != server.URL || app.Client.AccountID != 9 || app.Client.APIKey != "token" {
+		t.Fatalf("client = %s #%d %q, want the linked account", app.Client.BaseURL, app.Client.AccountID, app.Client.APIKey)
+	}
+	if cfg, _ := config.Load(); cfg.Default != "beta" {
+		t.Fatalf("default = %q, want the linked account beta", cfg.Default)
+	}
+}
+
+func TestNewAppLinkLoginDeclined(t *testing.T) {
+	isolateAuthEnv(t)
+	server := profileServer(t, 5, `[{"id":7,"name":"Acme"}]`)
+	isInteractive = func() bool { return true }
+	t.Cleanup(func() { isInteractive = defaultIsInteractive })
+
+	_, err := runLogin(t, nil, "n\n", func() error {
+		_, err := NewApp(&CLI{Output: "text", Account: server.URL + "/app/accounts/7"}, false, "test")
+		return err
+	})
+	var notLoggedIn *config.NotLoggedInError
+	if !errors.As(err, &notLoggedIn) {
+		t.Fatalf("declined login error = %v, want NotLoggedInError", err)
+	}
+}

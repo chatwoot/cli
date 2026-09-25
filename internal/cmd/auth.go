@@ -25,10 +25,17 @@ const defaultBaseURL = "https://app.chatwoot.com"
 
 type AuthLoginCmd struct {
 	URL string `arg:"" optional:"" help:"Chatwoot URL, or any link copied from the dashboard."`
+
+	// reader continues a prompt session started elsewhere (a link's offered
+	// login), so buffered input isn't lost between two readers.
+	reader *bufio.Reader
 }
 
 func (c *AuthLoginCmd) Run(app *App) error {
-	reader := bufio.NewReader(os.Stdin)
+	reader := c.reader
+	if reader == nil {
+		reader = bufio.NewReader(os.Stdin)
+	}
 
 	raw := strings.TrimSpace(c.URL)
 	if raw == "" {

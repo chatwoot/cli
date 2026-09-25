@@ -151,6 +151,58 @@ func TestNormalizeArgs(t *testing.T) {
 	}
 }
 
+func TestNormalizeArgsRoutesLinks(t *testing.T) {
+	const (
+		conv = "https://app.chatwoot.com/app/accounts/1/inbox/5/conversations/4521"
+		acct = "--account=https://app.chatwoot.com/app/accounts/1"
+	)
+	cases := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"conversation link views it", []string{conv}, []string{acct, "conv", "4521"}},
+		{"conversation link with verb", []string{conv, "reply", "on it"}, []string{acct, "conv", "reply", "4521", "on it"}},
+		{"global flags kept", []string{"-o", "json", conv}, []string{"-o", "json", acct, "conv", "4521"}},
+		{"link wins over -a", []string{"-a", "acme", conv, "resolve"}, []string{acct, "conv", "resolve", "4521"}},
+		{"link wins over @name", []string{"@acme", conv}, []string{acct, "conv", "4521"}},
+		{
+			"contact link",
+			[]string{"https://app.chatwoot.com/app/accounts/1/contacts/88", "conversations"},
+			[]string{acct, "contact", "conversations", "88"},
+		},
+		{
+			"inbox settings link",
+			[]string{"https://app.chatwoot.com/app/accounts/1/settings/inboxes/5"},
+			[]string{acct, "inbox", "5"},
+		},
+		{
+			"other dashboard page selects the account",
+			[]string{"https://app.chatwoot.com/app/accounts/1/dashboard", "labels"},
+			[]string{acct, "labels"},
+		},
+		{
+			"other dashboard page alone lists conversations",
+			[]string{"https://app.chatwoot.com/app/accounts/1/dashboard"},
+			[]string{acct, "convs"},
+		},
+		{
+			"link inside message text is left alone",
+			[]string{"conv", "1", "reply", conv},
+			[]string{"conv", "reply", "1", conv},
+		},
+		{"non-dashboard URL is left alone", []string{"https://example.com"}, []string{"https://example.com"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := normalizeArgs(tc.in)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("normalizeArgs(%v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseAccountFromFlagOrEnvironment(t *testing.T) {
 	parse := func(args ...string) string {
 		t.Helper()
