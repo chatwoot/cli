@@ -530,3 +530,32 @@ func TestAuthLoginWithoutAccountsListKeepsEarlierAccounts(t *testing.T) {
 		t.Fatalf("default = %#v, want account 7 with its help center kept", def)
 	}
 }
+
+// An upgraded config whose user wasn't known and whose token is gone: logging
+// in on a Chatwoot version without an accounts list must fix the default
+// account, not add a second one beside it.
+func TestAuthLoginRepairsMigratedAccountOnOlderChatwoot(t *testing.T) {
+	server := loginProfileServer(t, `{"id":5,"name":"Eve"}`)
+	defer server.Close()
+	isolateAuthEnv(t)
+	writeV1Config(t, "base_url: "+server.URL+"\naccount_id: 7\n")
+
+	if _, err := NewApp(&CLI{Output: "text"}, false, "test"); err == nil {
+		t.Fatal("setup: expected no credentials before login")
+	}
+	if _, err := runLogin(t, &AuthLoginCmd{URL: server.URL}, "token\n7\n"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+
+	cfg, _ := config.Load()
+	if len(cfg.Accounts) != 1 {
+		t.Fatalf("accounts = %#v, want the migrated account only", cfg.Accounts)
+	}
+	app, err := NewApp(&CLI{Output: "text"}, false, "test")
+	if err != nil {
+		t.Fatalf("NewApp after login: %v", err)
+	}
+	if app.Client.AccountID != 7 || app.Client.APIKey != "token" {
+		t.Fatalf("client = #%d %q, want account 7 with the new token", app.Client.AccountID, app.Client.APIKey)
+	}
+}

@@ -96,6 +96,11 @@ func parse(data []byte) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	if probe.Version > currentVersion {
+		// Reading it would drop fields this version doesn't know, and the next
+		// save would write the damaged config back.
+		return nil, fmt.Errorf("config was written by a newer chatwoot (version %d); upgrade the CLI to use it", probe.Version)
+	}
 	if probe.Version < currentVersion {
 		var legacy legacyConfig
 		if err := yaml.Unmarshal(data, &legacy); err != nil {

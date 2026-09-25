@@ -227,3 +227,24 @@ func TestLegacyAPIKeyIsIgnoredAndRemovedOnSave(t *testing.T) {
 		t.Fatalf("legacy api key was not removed: %s", content)
 	}
 }
+
+// A config written by a newer CLI must not be read (and later saved) by this
+// one, which would drop the fields it doesn't know.
+func TestLoadRejectsNewerConfigVersion(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	newer := "version: 3\ndefault: acme\naccounts:\n  - {name: acme, base_url: https://app.chatwoot.com, id: 1}\nfuture_field: keep-me\n"
+	writeConfigFile(t, newer)
+
+	cfg, err := Load()
+	if err == nil || cfg != nil {
+		t.Fatalf("Load() = (%#v, %v), want an error for a newer version", cfg, err)
+	}
+	for _, want := range []string{"newer", "version 3", "upgrade"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q missing %q", err, want)
+		}
+	}
+	if got := readConfigFile(t); got != newer {
+		t.Fatalf("config changed:\n%s", got)
+	}
+}

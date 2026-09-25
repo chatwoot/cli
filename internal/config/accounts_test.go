@@ -276,3 +276,42 @@ func TestMergeAccountsKeepsOtherAccounts(t *testing.T) {
 		t.Fatalf("re-merge added %v", names(added))
 	}
 }
+
+// A migrated account whose user wasn't known yet is adopted by a login that
+// can only name the one account (older Chatwoot), not duplicated.
+func TestMergeAccountsAdoptsMigratedAccountWithoutUser(t *testing.T) {
+	cfg := migrateV1(legacyConfig{BaseURL: appURL, AccountID: 1})
+
+	added := cfg.MergeAccounts(appURL, 7, "Shivam", []Membership{{ID: 1}})
+	if len(added) != 0 || len(cfg.Accounts) != 1 {
+		t.Fatalf("merge duplicated the migrated account: added %v, accounts %#v", names(added), cfg.Accounts)
+	}
+	def := cfg.DefaultAccount()
+	if def == nil || def.UserID != 7 || def.UserName != "Shivam" {
+		t.Fatalf("default = %#v, want the migrated account adopted by user 7", def)
+	}
+
+	// Another user's account is never adopted.
+	cfg.Accounts[0].UserID = 9
+	if added := cfg.MergeAccounts(appURL, 7, "Shivam", []Membership{{ID: 1}}); len(added) != 1 {
+		t.Fatalf("merge adopted another user's account: %#v", cfg.Accounts)
+	}
+}
+
+// On an older Chatwoot that never reports account names, the migrated
+// account's generated name becomes its name: it is shown from then on, so a
+// later sync that does learn the real name must not rename it.
+func TestSyncWithoutMembershipsSettlesMigratedName(t *testing.T) {
+	cfg := migrateV1(legacyConfig{BaseURL: appURL, AccountID: 1, UserID: 7})
+
+	cfg.SyncAccounts(appURL, 7, "Shivam", nil)
+	def := cfg.DefaultAccount()
+	if def == nil || def.Name != "account-1" || def.Provisional {
+		t.Fatalf("default = %#v, want account-1 settled (not provisional)", def)
+	}
+
+	cfg.SyncAccounts(appURL, 7, "Shivam", []Membership{{ID: 1, Name: "Chatwoot"}})
+	if def := cfg.DefaultAccount(); def == nil || def.Name != "account-1" || def.AccountName != "Chatwoot" {
+		t.Fatalf("default = %#v, want the name kept and AccountName recorded", def)
+	}
+}

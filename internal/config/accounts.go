@@ -101,10 +101,17 @@ func (c *Config) SyncAccounts(baseURL string, userID int, userName string, membe
 func (c *Config) MergeAccounts(baseURL string, userID int, userName string, memberships []Membership) (added []Account) {
 	baseURL = normalizeBaseURL(baseURL)
 	for _, m := range memberships {
-		if acct := c.FindByID(baseURL, userID, m.ID); acct != nil {
-			acct.UserName = userName
+		existing := c.FindByID(baseURL, userID, m.ID)
+		if existing == nil {
+			// A migrated account saved before its user was known belongs to
+			// whichever login can reach it, as in SyncAccounts.
+			existing = c.FindByID(baseURL, 0, m.ID)
+		}
+		if existing != nil {
+			existing.UserID = userID
+			existing.UserName = userName
 			if m.Name != "" {
-				acct.AccountName = m.Name
+				existing.AccountName = m.Name
 			}
 			continue
 		}
