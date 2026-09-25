@@ -34,9 +34,14 @@ explicitly.
 - Authenticate via the OS keyring (`chatwoot auth login`) for local use, or
   the `CHATWOOT_API_KEY` env var for CI / agent / headless contexts. Never
   rely on interactive prompts in scripts.
-- `chatwoot auth login` is interactive (prompts for base URL, API key,
-  account ID). If invoked headlessly it will fail — surface the env-var path
+- `chatwoot auth login` is interactive (prompts for the instance URL and
+  access token). If invoked headlessly it will fail — surface the env-var path
   instead.
+- A user may have several accounts, possibly on several instances (e.g.
+  production and staging). Run `chatwoot accounts -o json` to see them, and
+  **pin the account on every command** with `@name` (or `-a name`) once you
+  know which one the user means. Never run `chatwoot use` — it changes the
+  default for every terminal and every other process.
 - Prefer first-class commands over `chatwoot api`. Use raw API calls only when
   no command exists or the user explicitly asks for an endpoint-level call.
 - Use help center lookup only when the user asks for help center content,
@@ -97,7 +102,7 @@ chatwoot convs --help         # filters for the list command
 | Flag                | Description                                         |
 |---------------------|-----------------------------------------------------|
 | `-o, --output`      | Output format: `text` (default), `json`, `csv`      |
-| `-a, --account`     | Override account ID for this invocation             |
+| `-a, --account`     | Account for this invocation: a name (or unique prefix) from `chatwoot accounts`, or an account ID. `@name` as the first word is the same. Env: `CHATWOOT_ACCOUNT` |
 | `-q, --quiet`       | Print only IDs, one per line — for scripting        |
 | `--no-color`        | Disable colored output                              |
 | `-v, --verbose`     | Show request/response details (debugging)           |
@@ -130,7 +135,11 @@ chatwoot convs --help         # filters for the list command
 | `hc article <article-slug>`      | Fetch one help center article                     |
 | `me` / `whoami` / `auth status`  | Show current identity                             |
 | `api <path>`                      | Call an arbitrary Chatwoot API endpoint with saved auth headers |
-| `auth login` / `logout`          | Interactive login / remove credentials            |
+| `auth login [url]` / `logout [url]` | Interactive login (registers every account) / remove credentials (all, or one instance) |
+| `accounts` / `accounts --refresh` | List registered accounts / re-sync them with each login |
+| `accounts rename <old> <new>`    | Rename an account locally                         |
+| `use <name>`                     | Change the saved default account (global — avoid in agent workflows) |
+| `<dashboard link> [verb]`        | Act on the conversation/contact/inbox a pasted Chatwoot link points to, in the link's account |
 | `config path` / `config view`    | Inspect config file location and contents         |
 | `completion <shell>`             | Print shell-completion script                     |
 
@@ -146,7 +155,8 @@ chatwoot convs --help         # filters for the list command
 | 6 | **`-l a -l b` as repeated flags** | Labels are comma-separated on a single flag: `-l a,b`. Repeating the flag won't merge them. |
 | 7 | **Assuming list = all** | List commands return one page. Inspect `meta` in `-o json` (and use `-p N` to advance) before assuming completeness. |
 | 8 | **Snooze without `--until` is not "forever"** | Bare `snooze` snoozes until the customer's next reply, not indefinitely. Pass `--until 7d` or an absolute date for a fixed window. |
-| 9 | **Running `auth login` in a script** | Interactive only — fails in non-TTY contexts. Use `CHATWOOT_API_KEY` plus the saved `~/.chatwoot/config.yaml` (or `-a` to override account). |
+| 9 | **Running `auth login` in a script** | Interactive only — fails in non-TTY contexts. Use `CHATWOOT_API_KEY` plus the saved `~/.chatwoot/config.yaml` (and `@name` / `-a` to pick the account). |
+| 10 | **Relying on the default account** | The default can be changed by the user or another process at any time. Pin `@name` on every command in a workflow, especially writes — a reply sent to the wrong account (or to staging instead of production) cannot be taken back. |
 
 ## Safety — customer-visible writes
 
@@ -174,7 +184,7 @@ Customer- or team-visible (effectively irreversible):
 Read-only and safe to run freely:
 `convs`, `conv <id>` (view), `conv <id> messages`, `conv <id> contact`, `contacts`, `contact <id>`,
 `inboxes`, `inbox <id>`, `agents`, `labels`, `teams`, `me`, `whoami`,
-`auth status`, `config path`, `config view`, `api <path>` when it is a GET.
+`auth status`, `config path`, `config view`, `accounts`, `api <path>` when it is a GET.
 
 ## Common Patterns
 

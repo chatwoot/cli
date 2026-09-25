@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Multiple accounts. `auth login` registers every account you belong to on an instance, named after the account (`acme`, `globex-inc`); log in once per instance. Names that clash across instances get the host added (`chatwoot-staging`), and a second user on the same instance gets their name added.
+- `@name` as the first word (or `-a name`, or `CHATWOOT_ACCOUNT`) picks the account for a command; unique prefixes work. `chatwoot use <name>` changes the saved default.
+- Paste a Chatwoot dashboard link in place of the noun and id: `chatwoot <conversation link> reply "hi"`. Conversation, contact, and inbox links are supported, and the link's account is used. A link to an instance you haven't logged in to offers to log in first.
+- `chatwoot accounts` (with `--refresh` and `rename`) and `chatwoot auth logout <url>` for a single instance. An unknown `@name` refreshes accounts once before failing.
+- Writes to a non-default account print `→ <name>` to stderr before running, and a rejected token (401) explains how to log in again.
+
+### Changed
+
+- `auth login` takes an optional URL (a bare host or any dashboard link) and no longer asks for an account ID, except on Chatwoot versions whose profile doesn't list accounts.
+- `-a` takes an account name; a number still means that account ID on the default account's instance.
+- The config file moves to a versioned format with one entry per account, and help center defaults are saved per account. Existing configs and keyring tokens are upgraded automatically on first run with no prompt; the old config is kept as `config.yaml.bak`, and the old keyring entry is left in place.
+- Conversation locks are scoped per account, so the same conversation ID on two accounts no longer blocks.
+
+### Fixed
+
+- Global flags with values (`-a acme`, `-o json`) before the noun no longer break the id-first grammar (`chatwoot -a acme conv 123 reply "hi"`).
+- `-a <id>` works with keyring logins, not only with `CHATWOOT_API_KEY`.
+- Detail views align values when a key is as long as the longest one.
+
 ## [0.7.0] - 2026-09-25
 
 ### Added

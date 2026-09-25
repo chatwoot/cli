@@ -27,9 +27,18 @@ Root CLI command and help. Provides:
 
 ### auth.go
 Authentication setup.
-- `auth login` — save non-secret config to YAML and API token to OS keyring
-- `auth logout` — clear saved config and keyring token
+- `auth login [url]` — validate the token, register every account the user can see, save the token to the OS keyring
+- `auth logout [url]` — clear everything, or only one instance's accounts and tokens
 - `CHATWOOT_API_KEY` overrides saved keyring credentials for CI, coding agents, and temporary sessions
+
+### accounts.go
+- `accounts` (`--refresh`, `rename`) and `use <name>`
+- `resolveAccount` — `cfg.Resolve` plus one refresh of saved logins when a name is unknown
+
+### notices.go
+- `App.Finish` — after a successful run, names a migrated account and announces the user's other accounts once
+- `TargetNotice` — the `→ <name>` stderr line for writes to a non-default account
+- `ExplainError` — adds a re-login hint to 401s
 
 ### config.go
 Configuration management.
@@ -82,6 +91,8 @@ type App struct {
     Client   *sdk.Client
     Printer  *output.Printer
     Config   *config.Config
+    Account  *config.Account // the account this command runs against
+    Selector string          // raw @name / -a / CHATWOOT_ACCOUNT value
     Version  string
 }
 ```
@@ -89,7 +100,8 @@ type App struct {
 Commands use:
 - `app.Client` for API calls
 - `app.Printer.Print()` to render output (respects --format flag)
-- `app.Config` for cached values (base URL, account ID, etc.)
+- `app.Account` for the selected account (base URL, account ID, user ID, help center defaults); save changes with `saveConfig(app.Config)` only when `app.registered()`
+- `loadConfig()` instead of `config.Load()` in commands that read the config themselves, so a v1 config is upgraded
 
 ## Output Formatting
 

@@ -11,6 +11,8 @@ mise run dev                     # auto-rebuild on file changes
 ./chatwoot convs                 # plural noun = list
 ./chatwoot conv 123              # `conv 123` = view conv 123
 ./chatwoot conv 123 reply "hi"   # id-first verb dispatch
+./chatwoot @acme convs           # pick an account for one command
+./chatwoot accounts              # registered accounts (* = default)
 ```
 
 ## Project Structure
@@ -39,7 +41,10 @@ internal/
 - `default:"withargs"` on the View subcommand routes `chatwoot conv 123` to `conv view 123`.
 - `skipAuth` in main.go: auth/config commands bypass API client creation
 - `GetRaw()` on Client: for non-account-scoped endpoints (e.g. `/api/v1/profile`)
-- `Config.UserID` is cached on `auth login` and lazy-fetched on first `assign --agent me` so subsequent calls don't need a profile request
+- Multi-account: `config.Config` holds `Accounts` (name, base URL, account ID, user ID, per-account help center) plus `Default`. `App.Account` is the account the command runs against, picked by `cfg.Resolve` (link > `@name`/`-a` > `CHATWOOT_ACCOUNT` > default). `rewriteLink` and `rewriteAccountShorthand` in main.go turn a pasted link or leading `@name` into `--account=…` before the id-first rewrite.
+- Tokens are keyed per login (base URL + user ID) in the keyring; Chatwoot tokens are user-scoped, so one login serves every account that user sees. The pre-multi-account `api-key` entry is still read as a fallback.
+- v1 (flat) configs migrate in memory on `config.Load`; `loadConfig` in cmd saves them best-effort. The migrated account has a provisional name until `App.Finish` syncs it after the first successful command.
+- `Account.UserID` is cached on `auth login` and lazy-fetched on first `assign --agent me` so subsequent calls don't need a profile request
 
 ## Chatwoot API Quirks
 

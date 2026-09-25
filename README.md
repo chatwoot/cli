@@ -15,10 +15,32 @@ For a specific version or Windows, see the [install docs](https://developers.cha
 ## Setup
 
 ```bash
-chatwoot auth login
+chatwoot auth login                            # asks for the URL (default: Chatwoot Cloud)
+chatwoot auth login staging.chatwoot.com       # or pass it; any dashboard link works too
 ```
 
-You'll be prompted for your **Base URL**, **API Key**, and **Account ID**. Credentials are validated before saving. Non-secret config lives at `~/.chatwoot/config.yaml`; the API key is stored in your OS keyring. For CI or headless environments, set `CHATWOOT_API_KEY` to override the keyring.
+You'll be prompted for your **access token**. The CLI then registers every account you belong to on that instance, named after the account (`acme`, `globex-inc`), and asks which one is the default. Non-secret config lives at `~/.chatwoot/config.yaml`; tokens are stored in your OS keyring. For CI or headless environments, set `CHATWOOT_API_KEY` to override the keyring.
+
+## Multiple accounts
+
+Log in once per Chatwoot instance; every account you can see there is registered.
+
+```bash
+chatwoot accounts                              # List accounts (* = default)
+chatwoot @acme convs                           # Use an account for one command (unique prefixes work: @ac)
+chatwoot -a acme convs                         # Same, as a flag
+chatwoot use acme                              # Change the saved default
+CHATWOOT_ACCOUNT=acme chatwoot convs           # Per shell session or CI
+
+chatwoot https://app.chatwoot.com/app/accounts/1/conversations/4521              # Paste a link
+chatwoot https://app.chatwoot.com/app/accounts/1/conversations/4521 reply "hi"   # ...and act on it
+
+chatwoot accounts --refresh                    # Pick up accounts added or removed since login
+chatwoot accounts rename chatwoot-staging stg  # Your own names
+chatwoot auth logout staging.chatwoot.com      # Log out of one instance
+```
+
+The account is chosen in this order: a pasted link, then `@name` / `-a`, then `CHATWOOT_ACCOUNT`, then the default. When the same account name exists on two instances, the second gets the host added (`chatwoot-staging`). Writes to a non-default account print `→ <name>` to stderr first. Upgrading from a single-account version needs no action.
 
 ## Agent Skill
 
