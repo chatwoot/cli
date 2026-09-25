@@ -19,13 +19,25 @@ import (
 // -----------------------------------------------------------------------------
 
 type ConvsCmd struct {
-	Status   string   `short:"s" default:"open" help:"Filter: open, resolved, pending, snoozed."`
-	Inbox    int      `short:"i" help:"Filter by inbox ID."`
-	Assignee string   `default:"me" help:"Filter: me, unassigned, all."`
-	Team     int      `help:"Filter by team ID."`
-	Label    []string `short:"l" help:"Filter by labels."`
-	Query    string   `help:"Search conversations by message content."`
-	Page     int      `short:"p" default:"1" help:"Page number."`
+	Status   string   `short:"s" default:"open" help:"Only conversations with this status: open, resolved, pending, or snoozed."`
+	Inbox    int      `short:"i" help:"Only this inbox (IDs are in 'chatwoot inboxes')."`
+	Assignee string   `default:"me" help:"Whose conversations: me, unassigned, or all."`
+	Team     int      `help:"Only this team (IDs are in 'chatwoot teams')."`
+	Label    []string `short:"l" help:"Only conversations with these labels, like billing,urgent."`
+	Query    string   `help:"Search for words in the messages."`
+	Page     int      `short:"p" default:"1" help:"Which page of results to show."`
+}
+
+func (c *ConvsCmd) Help() string {
+	return `With no flags, this shows the open conversations assigned to you.
+
+Examples:
+  chatwoot convs                          Your open conversations
+  chatwoot convs --assignee all           Everyone's open conversations
+  chatwoot convs --assignee unassigned    Nobody has picked these up yet
+  chatwoot convs -s resolved -l billing   Resolved, labeled billing
+  chatwoot convs --query "refund"         Search the messages
+  chatwoot convs -q                       Just the IDs, for scripts`
 }
 
 func (c *ConvsCmd) Run(app *App) error {
@@ -76,24 +88,38 @@ func (c *ConvsCmd) Run(app *App) error {
 // -----------------------------------------------------------------------------
 
 type ConvCmd struct {
-	View     ConvViewCmd     `cmd:"" default:"withargs" help:"View a conversation (default)."`
-	Messages ConvMessagesCmd `cmd:"" help:"List messages in the conversation."`
-	Reply    ConvReplyCmd    `cmd:"" help:"Reply to the conversation."`
+	View     ConvViewCmd     `cmd:"" default:"withargs" help:"Show the conversation. You can leave out 'view': 'chatwoot conv 123' works too."`
+	Messages ConvMessagesCmd `cmd:"" help:"Show the messages in the conversation."`
+	Reply    ConvReplyCmd    `cmd:"" help:"Send a reply the customer will see, or a private note with --private."`
 	Resolve  ConvResolveCmd  `cmd:"" help:"Mark the conversation as resolved."`
-	Open     ConvOpenCmd     `cmd:"" help:"Set the conversation status to open."`
-	Pending  ConvPendingCmd  `cmd:"" help:"Set the conversation status to pending."`
-	Snooze   ConvSnoozeCmd   `cmd:"" help:"Snooze the conversation (default: until next reply)."`
-	Assign   ConvAssignCmd   `cmd:"" help:"Assign the conversation to an agent and/or team (--agent, --team)."`
-	Unassign ConvUnassignCmd `cmd:"" help:"Remove the assignee."`
-	Label    ConvLabelCmd    `cmd:"" help:"Set labels on the conversation (replaces existing)."`
-	Priority ConvPriorityCmd `cmd:"" help:"Set or clear conversation priority."`
-	Contact  ConvContactCmd  `cmd:"" help:"View the contact (sender) for the conversation."`
+	Open     ConvOpenCmd     `cmd:"" help:"Reopen the conversation."`
+	Pending  ConvPendingCmd  `cmd:"" help:"Mark the conversation as pending."`
+	Snooze   ConvSnoozeCmd   `cmd:"" help:"Snooze the conversation until the customer replies, or until a time you pick."`
+	Assign   ConvAssignCmd   `cmd:"" help:"Assign the conversation to an agent, a team, or both."`
+	Unassign ConvUnassignCmd `cmd:"" help:"Remove the assigned agent."`
+	Label    ConvLabelCmd    `cmd:"" help:"Set the conversation's labels. This replaces the labels it has now."`
+	Priority ConvPriorityCmd `cmd:"" help:"Set the priority, or clear it with none."`
+	Contact  ConvContactCmd  `cmd:"" help:"Show the contact who started the conversation."`
+}
+
+func (c *ConvCmd) Help() string {
+	return `Put the conversation ID first, then what to do.
+
+Examples:
+  chatwoot conv 123                             Show conversation 123
+  chatwoot conv 123 messages                    Read its messages
+  chatwoot conv 123 reply "On it!"              Reply to the customer
+  chatwoot conv 123 reply "Called" --private    Leave a note for your team
+  chatwoot conv 123 resolve                     Mark it resolved
+  chatwoot conv 123 assign --agent me           Take it yourself
+
+A link copied from the dashboard works in place of "conv 123".`
 }
 
 // -- view ---------------------------------------------------------------------
 
 type ConvViewCmd struct {
-	ID int `arg:"" help:"Conversation ID."`
+	ID int `arg:"" help:"The conversation ID."`
 }
 
 func (c *ConvViewCmd) Run(app *App) error {
@@ -142,9 +168,9 @@ func (c *ConvViewCmd) Run(app *App) error {
 // -- messages -----------------------------------------------------------------
 
 type ConvMessagesCmd struct {
-	ID     int `arg:"" help:"Conversation ID."`
-	Before int `help:"Messages before this message ID."`
-	After  int `help:"Messages after this message ID."`
+	ID     int `arg:"" help:"The conversation ID."`
+	Before int `help:"Show messages older than this message ID."`
+	After  int `help:"Show messages newer than this message ID."`
 }
 
 func (c *ConvMessagesCmd) Run(app *App) error {
@@ -219,9 +245,18 @@ func convLockScope(app *App) string {
 // -- reply --------------------------------------------------------------------
 
 type ConvReplyCmd struct {
-	ID      int    `arg:"" help:"Conversation ID."`
-	Text    string `arg:"" help:"Reply content."`
-	Private bool   `help:"Send as a private note instead of a public reply."`
+	ID      int    `arg:"" help:"The conversation ID."`
+	Text    string `arg:"" help:"What to send. Put it in quotes."`
+	Private bool   `help:"Post a private note only your team can see, instead of a reply."`
+}
+
+func (c *ConvReplyCmd) Help() string {
+	return `Without --private, the customer sees your reply right away, and it can't be
+taken back.
+
+Examples:
+  chatwoot conv 123 reply "Thanks, we're on it!"
+  chatwoot conv 123 reply "Refund approved by finance" --private`
 }
 
 func (c *ConvReplyCmd) Run(app *App) error {
@@ -246,7 +281,7 @@ func (c *ConvReplyCmd) Run(app *App) error {
 // -- status verbs: resolve / open / pending / snooze --------------------------
 
 type ConvResolveCmd struct {
-	ID int `arg:"" help:"Conversation ID."`
+	ID int `arg:"" help:"The conversation ID."`
 }
 
 func (c *ConvResolveCmd) Run(app *App) error {
@@ -256,7 +291,7 @@ func (c *ConvResolveCmd) Run(app *App) error {
 }
 
 type ConvOpenCmd struct {
-	ID int `arg:"" help:"Conversation ID."`
+	ID int `arg:"" help:"The conversation ID."`
 }
 
 func (c *ConvOpenCmd) Run(app *App) error {
@@ -266,7 +301,7 @@ func (c *ConvOpenCmd) Run(app *App) error {
 }
 
 type ConvPendingCmd struct {
-	ID int `arg:"" help:"Conversation ID."`
+	ID int `arg:"" help:"The conversation ID."`
 }
 
 func (c *ConvPendingCmd) Run(app *App) error {
@@ -276,8 +311,18 @@ func (c *ConvPendingCmd) Run(app *App) error {
 }
 
 type ConvSnoozeCmd struct {
-	ID    int    `arg:"" help:"Conversation ID."`
-	Until string `help:"Snooze duration (e.g. 24h, 7d) or absolute date (2006-01-02). Omit to snooze until next reply."`
+	ID    int    `arg:"" help:"The conversation ID."`
+	Until string `help:"When it should come back: a length of time like 4h, 2d, or 1w, or a date like 2026-05-10. Leave out to wait for the customer's next reply."`
+}
+
+func (c *ConvSnoozeCmd) Help() string {
+	return `A snoozed conversation leaves your open list and comes back on its own.
+
+Examples:
+  chatwoot conv 123 snooze                  Until the customer replies
+  chatwoot conv 123 snooze --until 4h       For four hours
+  chatwoot conv 123 snooze --until 7d       For a week
+  chatwoot conv 123 snooze --until 2026-05-10`
 }
 
 func (c *ConvSnoozeCmd) Run(app *App) error {
@@ -346,9 +391,20 @@ func parseExtendedDuration(s string) (time.Duration, bool) {
 // -- assign / unassign --------------------------------------------------------
 
 type ConvAssignCmd struct {
-	ID    int    `arg:"" help:"Conversation ID."`
-	Agent string `help:"Agent ID, 'me', or name (case-insensitive substring)."`
-	Team  int    `help:"Team ID."`
+	ID    int    `arg:"" help:"The conversation ID."`
+	Agent string `help:"Who to assign: me, an agent ID, part of their name, or the start of their email."`
+	Team  int    `help:"Team to assign (IDs are in 'chatwoot teams')."`
+}
+
+func (c *ConvAssignCmd) Help() string {
+	return `If a name matches more than one agent, nothing changes and you'll see who
+matched, so you can use their ID instead.
+
+Examples:
+  chatwoot conv 123 assign --agent me
+  chatwoot conv 123 assign --agent alice
+  chatwoot conv 123 assign --agent 42 --team 7
+  chatwoot conv 123 assign --team 7`
 }
 
 func (c *ConvAssignCmd) Run(app *App) error {
@@ -388,7 +444,7 @@ func (c *ConvAssignCmd) Run(app *App) error {
 }
 
 type ConvUnassignCmd struct {
-	ID int `arg:"" help:"Conversation ID."`
+	ID int `arg:"" help:"The conversation ID."`
 }
 
 func (c *ConvUnassignCmd) Run(app *App) error {
@@ -408,8 +464,17 @@ func (c *ConvUnassignCmd) Run(app *App) error {
 // -- label --------------------------------------------------------------------
 
 type ConvLabelCmd struct {
-	ID     int      `arg:"" help:"Conversation ID."`
-	Labels []string `arg:"" help:"Labels to set (comma-separated or repeated). Replaces existing."`
+	ID     int      `arg:"" help:"The conversation ID."`
+	Labels []string `arg:"" help:"The labels it should have, like billing,urgent."`
+}
+
+func (c *ConvLabelCmd) Help() string {
+	return `Any label you leave out is removed. To add one, include the labels it
+already has (see 'chatwoot conv 123').
+
+Examples:
+  chatwoot conv 123 label billing,urgent
+  chatwoot conv 123 label billing urgent`
 }
 
 func (c *ConvLabelCmd) Run(app *App) error {
@@ -438,8 +503,8 @@ func (c *ConvLabelCmd) Run(app *App) error {
 // -- priority -----------------------------------------------------------------
 
 type ConvPriorityCmd struct {
-	ID    int    `arg:"" help:"Conversation ID."`
-	Level string `arg:"" enum:"urgent,high,medium,low,none" help:"Priority: urgent, high, medium, low, or none."`
+	ID    int    `arg:"" help:"The conversation ID."`
+	Level string `arg:"" enum:"urgent,high,medium,low,none" help:"One of urgent, high, medium, or low. Use none to clear it."`
 }
 
 func (c *ConvPriorityCmd) Run(app *App) error {
@@ -463,7 +528,7 @@ func (c *ConvPriorityCmd) Run(app *App) error {
 // -- contact ------------------------------------------------------------------
 
 type ConvContactCmd struct {
-	ID int `arg:"" help:"Conversation ID."`
+	ID int `arg:"" help:"The conversation ID."`
 }
 
 func (c *ConvContactCmd) Run(app *App) error {

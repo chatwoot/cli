@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Clearer help: plain language, examples, commands grouped by topic, and subtle colors in the terminal.
 - `auth login` takes an optional URL (a bare host or any dashboard link) and no longer asks for an account ID, except on Chatwoot versions whose profile doesn't list accounts.
 - `-a` takes an account name; a number still means that account ID on the default account's instance.
 - The config file moves to a versioned format with one entry per account, and help center defaults are saved per account. Existing configs and keyring tokens are upgraded automatically on first run with no prompt; the old config is kept as `config.yaml.bak`, and the old keyring entry is left in place.

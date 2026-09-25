@@ -14,7 +14,7 @@ var latestReleaseURL = "https://api.github.com/repos/chatwoot/cli/releases/lates
 // VersionCmd is `chatwoot version` — prints the CLI version. Equivalent to
 // the `--version` flag, exposed as a subcommand for discoverability.
 type VersionCmd struct {
-	Check bool `help:"Check GitHub for a newer release."`
+	Check bool `help:"Also check whether a newer version is out."`
 }
 
 func (c *VersionCmd) Run(app *App) error {

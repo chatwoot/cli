@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -36,8 +34,6 @@ var (
 	// valueFlags are global flags whose value is the next token, so the arg
 	// rewriters must skip both when looking for the noun.
 	valueFlags = []string{"-o", "--output", "-a", "--account"}
-
-	helpVerbSwap = regexp.MustCompile(`\b(view|messages|reply|resolve|open|pending|snooze|assign|unassign|label|priority|contact|conversations)\s+<id>`)
 )
 
 func main() {
@@ -93,14 +89,18 @@ func main() {
 	app.Finish(os.Stderr, interactive)
 }
 
-func newParser(cli *cmd.CLI) (*kong.Kong, error) {
-	return kong.New(cli,
+func newParser(cli *cmd.CLI, extra ...kong.Option) (*kong.Kong, error) {
+	options := []kong.Option{
 		kong.Name("chatwoot"),
-		kong.Description("CLI for Chatwoot."),
+		kong.Description("Work with your Chatwoot inbox from the terminal."),
 		kong.Vars{"version": version},
 		kong.UsageOnError(),
 		kong.Help(idFirstHelpPrinter),
-	)
+		// Top-level help lists commands, not every verb; `chatwoot conv --help`
+		// shows the verbs.
+		kong.ConfigureHelp(kong.HelpOptions{NoExpandSubcommands: true}),
+	}
+	return kong.New(cli, append(options, extra...)...)
 }
 
 // normalizeArgs turns the user-facing grammar into what Kong parses.
@@ -196,19 +196,4 @@ func rewriteIDFirstGrammar(args []string) []string {
 	out := slices.Clone(args)
 	out[i+1], out[i+2] = out[i+2], out[i+1]
 	return out
-}
-
-// idFirstHelpPrinter runs Kong's default printer into a buffer, then swaps
-// `<verb> <id>` → `<id> <verb>` so help reads in the user-facing order.
-func idFirstHelpPrinter(o kong.HelpOptions, ctx *kong.Context) error {
-	var buf bytes.Buffer
-	orig := ctx.Stdout
-	ctx.Stdout = &buf
-	err := kong.DefaultHelpPrinter(o, ctx)
-	ctx.Stdout = orig
-	if err != nil {
-		return err
-	}
-	_, werr := fmt.Fprint(orig, helpVerbSwap.ReplaceAllString(buf.String(), `<id> $1`))
-	return werr
 }

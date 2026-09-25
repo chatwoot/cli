@@ -16,19 +16,36 @@ import (
 )
 
 type AuthCmd struct {
-	Login  AuthLoginCmd  `cmd:"" help:"Login with your Chatwoot credentials."`
-	Logout AuthLogoutCmd `cmd:"" help:"Logout and remove saved credentials."`
-	Status AuthStatusCmd `cmd:"" help:"Show current authentication status."`
+	Login  AuthLoginCmd  `cmd:"" help:"Log in to a Chatwoot instance and add your accounts there."`
+	Logout AuthLogoutCmd `cmd:"" help:"Log out of every instance, or just one."`
+	Status AuthStatusCmd `cmd:"" help:"Show who you're logged in as, and which instance and account."`
 }
 
 const defaultBaseURL = "https://app.chatwoot.com"
 
 type AuthLoginCmd struct {
-	URL string `arg:"" optional:"" help:"Chatwoot URL, or any link copied from the dashboard."`
+	URL string `arg:"" optional:"" help:"Your Chatwoot address, like app.chatwoot.com. A link copied from the dashboard works too. Leave out to be asked."`
 
 	// reader continues a prompt session started elsewhere (a link's offered
 	// login), so buffered input isn't lost between two readers.
 	reader *bufio.Reader
+}
+
+func (c *AuthLoginCmd) Help() string {
+	return `You'll be asked for an access token. Find it in Chatwoot under Profile
+Settings, then Access Token. It's saved in your system keychain.
+
+Every account you belong to is added, each with a short name like acme. See
+them with 'chatwoot accounts'. To add another instance, like staging, log in
+again.
+
+Older Chatwoot versions don't list your accounts. There you're asked for an
+account ID; log in again with another ID to add more.
+
+Examples:
+  chatwoot auth login                         Asks for the address
+  chatwoot auth login staging.chatwoot.com    Log in to another instance
+  chatwoot auth login https://chat.example.com/app/accounts/3/dashboard`
 }
 
 func (c *AuthLoginCmd) Run(app *App) error {
@@ -266,7 +283,15 @@ func readAPIKey(reader *bufio.Reader) (string, error) {
 }
 
 type AuthLogoutCmd struct {
-	URL string `arg:"" optional:"" help:"Log out of one Chatwoot instance only."`
+	URL string `arg:"" optional:"" help:"Only log out of this instance, like staging.chatwoot.com."`
+}
+
+func (c *AuthLogoutCmd) Help() string {
+	return `Removes saved tokens from your keychain, along with the accounts that use them.
+
+Examples:
+  chatwoot auth logout                             Log out of everything
+  chatwoot auth logout staging.chatwoot.com        Just this instance`
 }
 
 func (c *AuthLogoutCmd) Run(app *App) error {

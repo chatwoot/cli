@@ -48,15 +48,15 @@ func (c *HCsCmd) Run(app *App) error {
 }
 
 type HCCmd struct {
-	List     HCsCmd        `cmd:"" help:"List help centers."`
-	Default  HCDefaultCmd  `cmd:"" help:"Show, set, or clear the default help center."`
-	Articles HCArticlesCmd `cmd:"" help:"List or search public help center articles."`
-	Article  HCArticleCmd  `cmd:"" help:"Get a public help center article."`
+	List     HCsCmd        `cmd:"" help:"List help centers (same as 'chatwoot hcs')."`
+	Default  HCDefaultCmd  `cmd:"" help:"Choose which help center to search by default, or show the current one."`
+	Articles HCArticlesCmd `cmd:"" help:"List or search published articles."`
+	Article  HCArticleCmd  `cmd:"" help:"Read one article."`
 }
 
 type HCDefaultCmd struct {
-	Slug  string `arg:"" optional:"" help:"Help center portal slug to set as default."`
-	Clear bool   `help:"Clear the configured default help center."`
+	Slug  string `arg:"" optional:"" help:"The help center's slug (see 'chatwoot hcs'). Leave out to see the current default."`
+	Clear bool   `help:"Forget the default help center."`
 }
 
 func (c *HCDefaultCmd) Run(app *App) error {
@@ -101,12 +101,22 @@ func (c *HCDefaultCmd) Run(app *App) error {
 }
 
 type HCArticlesCmd struct {
-	PortalSlug   string `name:"portal" help:"Help center portal slug. Defaults to 'chatwoot hc default'."`
-	Locale       string `help:"Article locale, for example en. Defaults to the configured help center locale."`
-	CategorySlug string `name:"category" help:"Restrict results to a category slug."`
-	Query        string `help:"Search query."`
-	Page         int    `short:"p" default:"1" help:"Page number."`
-	PerPage      int    `help:"Results per page, capped by Chatwoot at 100."`
+	PortalSlug   string `name:"portal" help:"Which help center to search. Uses your default if you leave it out."`
+	Locale       string `help:"Which language, like en or fr. Uses your default help center's language if you leave it out."`
+	CategorySlug string `name:"category" help:"Only articles in this category."`
+	Query        string `help:"Words to search for."`
+	Page         int    `short:"p" default:"1" help:"Which page of results to show."`
+	PerPage      int    `help:"How many articles per page (up to 100)."`
+}
+
+func (c *HCArticlesCmd) Help() string {
+	return `Set a default help center first with 'chatwoot hc default <slug>', or pass
+--portal and --locale each time.
+
+Examples:
+  chatwoot hc articles --query "api channel"
+  chatwoot hc articles --category getting-started
+  chatwoot hc articles --portal docs --locale fr`
 }
 
 func (c *HCArticlesCmd) Run(app *App) error {
@@ -159,8 +169,8 @@ func (c *HCArticlesCmd) Run(app *App) error {
 }
 
 type HCArticleCmd struct {
-	PortalSlug  string `name:"portal" help:"Help center portal slug. Defaults to 'chatwoot hc default'."`
-	ArticleSlug string `arg:"" help:"Article slug."`
+	PortalSlug  string `name:"portal" help:"Which help center it's in. Uses your default if you leave it out."`
+	ArticleSlug string `arg:"" help:"The article's slug, from 'chatwoot hc articles'."`
 }
 
 func (c *HCArticleCmd) Run(app *App) error {
