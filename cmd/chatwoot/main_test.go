@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/chatwoot/cli/internal/cmd"
 	"github.com/chatwoot/cli/internal/config"
 	"github.com/zalando/go-keyring"
 )
@@ -40,13 +41,20 @@ func TestRewriteIDFirstGrammar(t *testing.T) {
 			want: []string{"-q", "conv", "open", "123"},
 		},
 		{
-			// Known limitation: a flag with a value (e.g. `-a 2`) breaks the
-			// rewrite because the loop only advances past tokens starting
-			// with '-'. Users typing id-first must put global flags after
-			// the noun, or use verb-first form.
-			name: "flag-with-value bails (known limitation)",
-			in:   []string{"-a", "2", "conv", "123", "open"},
-			want: []string{"-a", "2", "conv", "123", "open"},
+			// Global flags that take a value are skipped with their value.
+			name: "flag with value before noun",
+			in:   []string{"-a", "acme", "conv", "123", "open"},
+			want: []string{"-a", "acme", "conv", "open", "123"},
+		},
+		{
+			name: "long flags with values before noun",
+			in:   []string{"--account", "acme", "--output", "json", "conv", "123", "open"},
+			want: []string{"--account", "acme", "--output", "json", "conv", "open", "123"},
+		},
+		{
+			name: "flag=value before noun",
+			in:   []string{"--account=acme", "conv", "123", "open"},
+			want: []string{"--account=acme", "conv", "open", "123"},
 		},
 		{
 			name: "verb-first input passes through",
@@ -92,6 +100,85 @@ func TestRewriteIDFirstGrammar(t *testing.T) {
 				t.Errorf("rewriteIDFirstGrammar(%v) = %v, want %v", tc.in, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestNormalizeArgs(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{
+			name: "@name becomes --account",
+			in:   []string{"@acme", "convs"},
+			want: []string{"--account=acme", "convs"},
+		},
+		{
+			name: "@name with id-first grammar",
+			in:   []string{"@staging", "conv", "123", "reply", "hi"},
+			want: []string{"--account=staging", "conv", "reply", "123", "hi"},
+		},
+		{
+			name: "@name after global flags",
+			in:   []string{"-o", "json", "-q", "@acme", "convs"},
+			want: []string{"-o", "json", "-q", "--account=acme", "convs"},
+		},
+		{
+			// Only a leading @ selects an account; message text is never touched.
+			name: "@ in message text is left alone",
+			in:   []string{"conv", "123", "reply", "@john thanks"},
+			want: []string{"conv", "reply", "123", "@john thanks"},
+		},
+		{
+			name: "bare @ is left alone",
+			in:   []string{"@", "convs"},
+			want: []string{"@", "convs"},
+		},
+		{
+			name: "no args",
+			in:   []string{},
+			want: []string{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := normalizeArgs(tc.in)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("normalizeArgs(%v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseAccountFromFlagOrEnvironment(t *testing.T) {
+	parse := func(args ...string) string {
+		t.Helper()
+		var cli cmd.CLI
+		parser, err := newParser(&cli)
+		if err != nil {
+			t.Fatalf("newParser: %v", err)
+		}
+		if _, err := parser.Parse(normalizeArgs(args)); err != nil {
+			t.Fatalf("Parse(%v): %v", args, err)
+		}
+		return cli.Account
+	}
+
+	t.Setenv("CHATWOOT_ACCOUNT", "")
+	if got := parse("version"); got != "" {
+		t.Fatalf("no selector: Account = %q, want empty", got)
+	}
+
+	t.Setenv("CHATWOOT_ACCOUNT", "acme")
+	if got := parse("version"); got != "acme" {
+		t.Fatalf("CHATWOOT_ACCOUNT: Account = %q, want acme", got)
+	}
+	if got := parse("@staging", "version"); got != "staging" {
+		t.Fatalf("@staging over env: Account = %q, want staging", got)
+	}
+	if got := parse("-a", "42", "version"); got != "42" {
+		t.Fatalf("-a 42 over env: Account = %q, want 42", got)
 	}
 }
 

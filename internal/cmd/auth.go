@@ -203,9 +203,12 @@ func runAuthStatus(app *App) error {
 		return err
 	}
 
-	acct := cfg.DefaultAccount()
-	if acct == nil {
+	if cfg == nil || len(cfg.Accounts) == 0 {
 		_, err := fmt.Fprintln(app.Printer.Writer, "Not logged in. Run 'chatwoot auth login' to authenticate.")
+		return err
+	}
+	acct, err := cfg.Resolve(app.Selector)
+	if err != nil {
 		return err
 	}
 
@@ -222,7 +225,7 @@ func runAuthStatus(app *App) error {
 
 	// Self-heal the cached UserID for older saved logins. Environment tokens are
 	// temporary overrides and must not rewrite the persisted login identity.
-	if source == config.CredentialSourceKeyring && acct.UserID != profile.ID {
+	if source == config.CredentialSourceKeyring && acct.Name != "" && acct.UserID != profile.ID {
 		acct.UserID = profile.ID
 		_ = saveConfig(cfg)
 	}

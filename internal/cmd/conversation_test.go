@@ -65,7 +65,7 @@ func TestAssignMeWithAccountOverrideDoesNotPersistOverride(t *testing.T) {
 
 	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 
-	app, err := NewApp(&CLI{Output: "text", Account: 2}, false, "test")
+	app, err := NewApp(&CLI{Output: "text", Account: "2"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
 	}

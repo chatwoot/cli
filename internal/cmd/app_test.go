@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chatwoot/cli/internal/config"
@@ -83,5 +84,78 @@ func TestNewAppWithoutConfigAsksToLogIn(t *testing.T) {
 	isolateAuthEnv(t)
 	if _, err := NewApp(&CLI{Output: "text"}, false, "test"); err == nil {
 		t.Fatal("NewApp without a config succeeded")
+	}
+}
+
+// saveTwoLogins registers accounts on two instances with separate tokens.
+func saveTwoLogins(t *testing.T) *config.Config {
+	t.Helper()
+	cfg := &config.Config{}
+	cfg.SyncAccounts("https://app.chatwoot.com", 7, "Shivam", []config.Membership{{ID: 1, Name: "Chatwoot"}, {ID: 42, Name: "Acme"}})
+	cfg.SyncAccounts("https://staging.chatwoot.com", 3, "Shivam", []config.Membership{{ID: 1, Name: "Chatwoot"}})
+	cfg.Default = "chatwoot"
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+	for _, name := range []string{"chatwoot", "chatwoot-staging"} {
+		acct := cfg.Find(name)
+		if err := config.SaveAPIKey(acct, name+"-token"); err != nil {
+			t.Fatalf("SaveAPIKey(%s): %v", name, err)
+		}
+	}
+	return cfg
+}
+
+func TestNewAppUsesSelectedAccount(t *testing.T) {
+	isolateAuthEnv(t)
+	saveTwoLogins(t)
+
+	cases := []struct {
+		selector string
+		baseURL  string
+		id       int
+		token    string
+	}{
+		{"", "https://app.chatwoot.com", 1, "chatwoot-token"},
+		{"acme", "https://app.chatwoot.com", 42, "chatwoot-token"},
+		{"chatwoot-s", "https://staging.chatwoot.com", 1, "chatwoot-staging-token"},
+		{"42", "https://app.chatwoot.com", 42, "chatwoot-token"},
+		{"99", "https://app.chatwoot.com", 99, "chatwoot-token"},
+	}
+	for _, tc := range cases {
+		app, err := NewApp(&CLI{Output: "text", Account: tc.selector}, false, "test")
+		if err != nil {
+			t.Fatalf("NewApp(%q): %v", tc.selector, err)
+		}
+		c := app.Client
+		if c.BaseURL != tc.baseURL || c.AccountID != tc.id || c.APIKey != tc.token {
+			t.Errorf("NewApp(%q) client = %s #%d %q, want %s #%d %q",
+				tc.selector, c.BaseURL, c.AccountID, c.APIKey, tc.baseURL, tc.id, tc.token)
+		}
+	}
+}
+
+func TestNewAppRejectsUnknownOrAmbiguousAccount(t *testing.T) {
+	isolateAuthEnv(t)
+	saveTwoLogins(t)
+
+	for _, selector := range []string{"nope", "chat"} {
+		if _, err := NewApp(&CLI{Output: "text", Account: selector}, false, "test"); err == nil {
+			t.Errorf("NewApp(%q) succeeded, want an error", selector)
+		}
+	}
+}
+
+func TestNewAppWithoutDefaultAccountExplainsHowToPick(t *testing.T) {
+	isolateAuthEnv(t)
+	cfg := saveTwoLogins(t)
+	cfg.Default = ""
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+
+	_, err := NewApp(&CLI{Output: "text"}, false, "test")
+	if err == nil || !strings.Contains(err.Error(), "chatwoot use <name>") {
+		t.Fatalf("NewApp without a default = %v, want a hint to run chatwoot use", err)
 	}
 }

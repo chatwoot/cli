@@ -16,7 +16,10 @@ type App struct {
 	// Account is the account this command runs against. It points into
 	// Config.Accounts, except for an unregistered `-a <id>` override.
 	Account *config.Account
-	Version string
+	// Selector is the raw account choice (@name, -a, CHATWOOT_ACCOUNT), for
+	// commands that load the config themselves.
+	Selector string
+	Version  string
 }
 
 // saveConfig is swapped in tests to simulate a failing disk.
@@ -42,24 +45,20 @@ func NewApp(cli *CLI, skipAuth bool, version string) (*App, error) {
 	printer := output.NewPrinter(cli.Output, cli.NoColor, cli.Quiet)
 
 	if skipAuth {
-		return &App{Printer: printer, Version: version}, nil
+		return &App{Printer: printer, Selector: cli.Account, Version: version}, nil
 	}
 
 	cfg, err := loadConfig()
 	if err != nil {
 		return nil, err
 	}
-
-	acct := cfg.DefaultAccount()
-	if acct == nil {
+	if cfg == nil || len(cfg.Accounts) == 0 {
 		return nil, fmt.Errorf("not authenticated. Run 'chatwoot auth login' to set up credentials")
 	}
-	if cli.Account > 0 && cli.Account != acct.ID {
-		override := *acct
-		override.Name = ""
-		override.ID = cli.Account
-		override.HelpCenter = config.HelpCenterConfig{}
-		acct = &override
+
+	acct, err := cfg.Resolve(cli.Account)
+	if err != nil {
+		return nil, err
 	}
 
 	apiKey, _, err := config.ResolveAPIKey(acct)
@@ -75,11 +74,12 @@ func NewApp(cli *CLI, skipAuth bool, version string) (*App, error) {
 	)
 
 	return &App{
-		Client:  client,
-		Printer: printer,
-		Config:  cfg,
-		Account: acct,
-		Version: version,
+		Client:   client,
+		Printer:  printer,
+		Config:   cfg,
+		Account:  acct,
+		Selector: cli.Account,
+		Version:  version,
 	}, nil
 }
 

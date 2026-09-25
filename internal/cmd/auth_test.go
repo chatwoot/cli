@@ -393,3 +393,25 @@ func runLogin(t *testing.T, stdin string) error {
 	printer := output.NewPrinter("text", false, false)
 	return (&AuthLoginCmd{}).Run(&App{Printer: printer})
 }
+
+func TestAuthStatusReportsSelectedAccount(t *testing.T) {
+	profile := `{"id": 3, "name": "Shivam", "email": "s@example.com"}`
+	defer setupAuthStatusEnv(t, profile)()
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load: %v", err)
+	}
+	def := cfg.DefaultAccount()
+	cfg.Accounts = append(cfg.Accounts, config.Account{Name: "qa", BaseURL: def.BaseURL, ID: 5})
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+
+	got := runAndCapture(t, func(app *App) error {
+		app.Selector = "qa"
+		return runAuthStatus(app)
+	})
+	if !strings.Contains(got, "qa") || !strings.Contains(got, "5") {
+		t.Fatalf("auth status did not report the selected account:\n%s", got)
+	}
+}

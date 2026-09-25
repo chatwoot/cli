@@ -31,6 +31,10 @@ var (
 		"inbox":        inboxVerbs,
 	}
 
+	// valueFlags are global flags whose value is the next token, so the arg
+	// rewriters must skip both when looking for the noun.
+	valueFlags = []string{"-o", "--output", "-a", "--account"}
+
 	helpVerbSwap = regexp.MustCompile(`\b(view|messages|reply|resolve|open|pending|snooze|assign|unassign|label|priority|contact|conversations)\s+<id>`)
 )
 
@@ -39,16 +43,13 @@ func main() {
 	if len(args) == 0 {
 		args = []string{"--help"}
 	}
-	args = rewriteIDFirstGrammar(args)
+	args = normalizeArgs(args)
 
 	var cli cmd.CLI
-	parser := kong.Must(&cli,
-		kong.Name("chatwoot"),
-		kong.Description("CLI for Chatwoot."),
-		kong.Vars{"version": version},
-		kong.UsageOnError(),
-		kong.Help(idFirstHelpPrinter),
-	)
+	parser, err := newParser(&cli)
+	if err != nil {
+		panic(err)
+	}
 
 	// Enable shell completions (must be called before Parse)
 	kongcompletion.Register(parser)
@@ -79,14 +80,52 @@ func main() {
 	}
 }
 
+func newParser(cli *cmd.CLI) (*kong.Kong, error) {
+	return kong.New(cli,
+		kong.Name("chatwoot"),
+		kong.Description("CLI for Chatwoot."),
+		kong.Vars{"version": version},
+		kong.UsageOnError(),
+		kong.Help(idFirstHelpPrinter),
+	)
+}
+
+// normalizeArgs turns the user-facing grammar into what Kong parses.
+func normalizeArgs(args []string) []string {
+	return rewriteIDFirstGrammar(rewriteAccountShorthand(args))
+}
+
+// nounIndex returns the index of the first token that is not a global flag or
+// a global flag's value.
+func nounIndex(args []string) int {
+	i := 0
+	for i < len(args) && strings.HasPrefix(args[i], "-") {
+		if slices.Contains(valueFlags, args[i]) {
+			i++
+		}
+		i++
+	}
+	return i
+}
+
+// rewriteAccountShorthand turns a leading `@name` into `--account=name`. Only
+// the token where the noun would start counts, so `@` inside message text
+// (`conv 1 reply "@john hi"`) is never treated as an account.
+func rewriteAccountShorthand(args []string) []string {
+	i := nounIndex(args)
+	if i >= len(args) || len(args[i]) < 2 || !strings.HasPrefix(args[i], "@") {
+		return args
+	}
+	out := slices.Clone(args)
+	out[i] = "--account=" + strings.TrimPrefix(args[i], "@")
+	return out
+}
+
 // rewriteIDFirstGrammar swaps `<noun> <id> <verb>` to `<noun> <verb> <id>`
 // when the args match a known context-noun grammar. Other shapes pass through
 // unchanged, so verb-first input still works.
 func rewriteIDFirstGrammar(args []string) []string {
-	i := 0
-	for i < len(args) && strings.HasPrefix(args[i], "-") {
-		i++
-	}
+	i := nounIndex(args)
 	if i >= len(args) {
 		return args
 	}
