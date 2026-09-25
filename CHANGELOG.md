@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Auth header is now sent as `api-access-token` instead of `api_access_token`. Reverse proxies that drop headers containing underscores (Caddy 2.6.4+ by default, nginx with the default `underscores_in_headers off`) stripped the token, so every call to a self-hosted instance behind them failed with `401`. Chatwoot reads both spellings identically, so no server change is needed. ([#41](https://github.com/chatwoot/cli/issues/41))
+
 ## [0.6.1] - 2026-06-03
 
 ### Fixed

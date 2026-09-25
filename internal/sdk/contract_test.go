@@ -398,8 +398,8 @@ func newContractClient(t *testing.T, handler func(*testing.T, *http.Request, *op
 func validateContractRequest(t *testing.T, r *http.Request) *openapi3filter.RequestValidationInput {
 	t.Helper()
 
-	if got := r.Header.Get("api_access_token"); got != contractAPIKey {
-		t.Fatalf("api_access_token header = %q, want %q", got, contractAPIKey)
+	if got := r.Header.Get("api-access-token"); got != contractAPIKey {
+		t.Fatalf("api-access-token header = %q, want %q", got, contractAPIKey)
 	}
 
 	route, pathParams, err := getContractRouter(t).FindRoute(r)
