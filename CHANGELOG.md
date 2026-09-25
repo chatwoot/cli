@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Send the auth header as `api-access-token` so proxies that drop underscore headers (e.g. Caddy 2.6.4+) no longer cause `401`s. ([#41](https://github.com/chatwoot/cli/issues/41))
+
 ## [0.6.1] - 2026-06-03
 
 ### Fixed

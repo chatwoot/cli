@@ -122,7 +122,7 @@ Authenticated user profile.
 ## Authentication
 
 - Token resolved by callers from `CHATWOOT_API_KEY` or the OS keyring
-- Injected as `api_access_token` header on all requests
+- Injected as `api-access-token` header on all requests (hyphens, not underscores: proxies like Caddy 2.6.4+ and nginx drop underscore headers by default; Rack maps both to `HTTP_API_ACCESS_TOKEN`)
 - Token must have `conversation:read`, `message:read`, `message:write` scopes
 
 ## File Organization

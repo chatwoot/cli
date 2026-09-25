@@ -20,8 +20,8 @@ func TestApiCmdCallsAccountScopedEndpoint(t *testing.T) {
 			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusNotFound)
 			return
 		}
-		if r.Header.Get("api_access_token") != "test-token" {
-			t.Errorf("api_access_token = %q, want test-token", r.Header.Get("api_access_token"))
+		if r.Header.Get("api-access-token") != "test-token" {
+			t.Errorf("api-access-token = %q, want test-token", r.Header.Get("api-access-token"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":123,"status":"open"}`))
