@@ -27,21 +27,23 @@ func (c *ConfigPathCmd) Run(app *App) error {
 type ConfigViewCmd struct{}
 
 func (c *ConfigViewCmd) Run(app *App) error {
-	cfg, err := config.Load()
+	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
 
-	if cfg == nil {
+	acct := cfg.DefaultAccount()
+	if acct == nil {
 		fmt.Println("No configuration found. Run 'chatwoot auth login' to set up.")
 		return nil
 	}
 
-	credential := credentialStatus(cfg)
+	credential := credentialStatus(acct)
 
 	detail := []output.KeyValue{
-		{Key: "Base URL", Value: cfg.BaseURL},
-		{Key: "Account ID", Value: fmt.Sprintf("%d", cfg.AccountID)},
+		{Key: "Account", Value: acct.Name},
+		{Key: "Base URL", Value: acct.BaseURL},
+		{Key: "Account ID", Value: fmt.Sprintf("%d", acct.ID)},
 		{Key: "Credential", Value: credential},
 	}
 	if config.IsDev {
@@ -52,8 +54,8 @@ func (c *ConfigViewCmd) Run(app *App) error {
 	return nil
 }
 
-func credentialStatus(cfg *config.Config) string {
-	_, source, err := config.ResolveAPIKey(cfg)
+func credentialStatus(acct *config.Account) string {
+	_, source, err := config.ResolveAPIKey(acct)
 	if err == nil {
 		return string(source)
 	}

@@ -28,9 +28,7 @@ func TestApiCmdCallsAccountScopedEndpoint(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
@@ -65,9 +63,7 @@ func TestApiCmdUsesExactAPIPath(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
@@ -103,9 +99,7 @@ func TestApiCmdSendsMethodBodyAndHeaders(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)

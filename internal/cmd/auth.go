@@ -48,17 +48,13 @@ func (c *AuthLoginCmd) Run(app *App) error {
 		return fmt.Errorf("invalid account ID: %w", err)
 	}
 
-	cfg := &config.Config{
-		BaseURL:   baseURL,
-		AccountID: accountID,
-	}
-
-	if !cfg.IsValid() {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if baseURL == "" || accountID <= 0 {
 		return fmt.Errorf("all fields are required")
 	}
 
 	// Validate credentials by fetching profile
-	client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
+	client := sdk.NewClient(baseURL, apiKey, accountID)
 	profile, err := client.Profile().Get()
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
@@ -67,22 +63,46 @@ func (c *AuthLoginCmd) Run(app *App) error {
 	// The token is valid, but that doesn't mean it can access the account ID the
 	// user typed. Verify membership now so a typo/wrong account fails here with a
 	// clear message instead of as a cryptic 404 on the first account-scoped call.
-	if err := verifyAccountAccess(profile, cfg.AccountID); err != nil {
-		return err
-	}
-	cfg.UserID = profile.ID
-
-	if err := config.SaveAPIKey(cfg, apiKey); err != nil {
+	if err := verifyAccountAccess(profile, accountID); err != nil {
 		return err
 	}
 
-	if err := config.Save(cfg); err != nil {
-		_ = config.DeleteAPIKey(cfg)
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	memberships := profileMemberships(profile)
+	if len(memberships) == 0 {
+		// Older Chatwoot versions omit the accounts list; register the entered one.
+		memberships = []config.Membership{{ID: accountID}}
+	}
+	cfg.SyncAccounts(baseURL, profile.ID, profile.Name, memberships)
+	acct := cfg.FindByID(baseURL, profile.ID, accountID)
+	if acct == nil {
+		return fmt.Errorf("account %d was not registered", accountID)
+	}
+	cfg.Default = acct.Name
+
+	if err := config.SaveAPIKey(acct, apiKey); err != nil {
+		return err
+	}
+	if err := saveConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
 	fmt.Print(loginSuccessMessage(profile.Name, profile.Email))
 	return nil
+}
+
+func profileMemberships(profile *sdk.ProfileResponse) []config.Membership {
+	memberships := make([]config.Membership, 0, len(profile.Accounts))
+	for _, acc := range profile.Accounts {
+		memberships = append(memberships, config.Membership{ID: acc.ID, Name: output.SanitizeText(acc.Name)})
+	}
+	return memberships
 }
 
 func loginSuccessMessage(name, email string) string {
@@ -143,17 +163,12 @@ func readAPIKey(reader *bufio.Reader) (string, error) {
 type AuthLogoutCmd struct{}
 
 func (c *AuthLogoutCmd) Run(app *App) error {
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
-
 	path, err := config.ConfigPath()
 	if err != nil {
 		return err
 	}
 
-	if err := config.DeleteAPIKey(cfg); err != nil {
+	if err := config.DeleteAPIKeys(); err != nil {
 		return err
 	}
 
@@ -183,22 +198,23 @@ func (c *AuthStatusCmd) Run(app *App) error { return runAuthStatus(app) }
 // `whoami`. They all answer "who am I and where am I logged in?" so they
 // share output. It also opportunistically refreshes the cached UserID.
 func runAuthStatus(app *App) error {
-	cfg, err := config.Load()
+	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
 
-	if cfg == nil || !cfg.IsValid() {
+	acct := cfg.DefaultAccount()
+	if acct == nil {
 		_, err := fmt.Fprintln(app.Printer.Writer, "Not logged in. Run 'chatwoot auth login' to authenticate.")
 		return err
 	}
 
-	apiKey, source, err := config.ResolveAPIKey(cfg)
+	apiKey, source, err := config.ResolveAPIKey(acct)
 	if err != nil {
 		return fmt.Errorf("not authenticated: %w", err)
 	}
 
-	client := sdk.NewClient(cfg.BaseURL, apiKey, cfg.AccountID)
+	client := sdk.NewClient(acct.BaseURL, apiKey, acct.ID)
 	profile, err := client.Profile().Get()
 	if err != nil {
 		return fmt.Errorf("failed to fetch profile: %w", err)
@@ -206,14 +222,15 @@ func runAuthStatus(app *App) error {
 
 	// Self-heal the cached UserID for older saved logins. Environment tokens are
 	// temporary overrides and must not rewrite the persisted login identity.
-	if source == config.CredentialSourceKeyring && cfg.UserID != profile.ID {
-		cfg.UserID = profile.ID
-		_ = config.Save(cfg)
+	if source == config.CredentialSourceKeyring && acct.UserID != profile.ID {
+		acct.UserID = profile.ID
+		_ = saveConfig(cfg)
 	}
 
 	app.Printer.PrintDetail([]output.KeyValue{
-		{Key: "Instance", Value: cfg.BaseURL},
-		{Key: "Account", Value: strconv.Itoa(cfg.AccountID)},
+		{Key: "Instance", Value: acct.BaseURL},
+		{Key: "Account", Value: strconv.Itoa(acct.ID)},
+		{Key: "Account Name", Value: acct.Name},
 		{Key: "User ID", Value: strconv.Itoa(profile.ID)},
 		{Key: "Name", Value: profile.Name},
 		{Key: "Email", Value: profile.Email},

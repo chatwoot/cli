@@ -18,11 +18,8 @@ func TestConfigViewReportsCredentialSourceWithoutToken(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(config.APIKeyEnv, "")
 
-	cfg := &config.Config{BaseURL: "https://app.chatwoot.com", AccountID: 123}
-	if err := config.Save(cfg); err != nil {
-		t.Fatalf("config.Save() error = %v", err)
-	}
-	if err := config.SaveAPIKey(cfg, "super-secret-token"); err != nil {
+	cfg := saveTestConfig(t, config.Account{BaseURL: "https://app.chatwoot.com", ID: 123, UserID: 7})
+	if err := config.SaveAPIKey(cfg.DefaultAccount(), "super-secret-token"); err != nil {
 		t.Fatalf("config.SaveAPIKey() error = %v", err)
 	}
 

@@ -137,7 +137,10 @@ func TestAssignMeAccountOverrideSmoke(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
+	if err := config.Save(&config.Config{
+		Default:  "test",
+		Accounts: []config.Account{{Name: "test", BaseURL: server.URL, ID: 1}},
+	}); err != nil {
 		t.Fatalf("config.Save: %v", err)
 	}
 
@@ -154,10 +157,7 @@ func TestAssignMeAccountOverrideSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
 	}
-	if post.AccountID != 1 {
-		t.Fatalf("persisted account_id = %d, want original account 1", post.AccountID)
-	}
-	if post.UserID != 77 {
-		t.Fatalf("persisted user_id = %d, want fetched profile user 77", post.UserID)
+	if def := post.DefaultAccount(); def.ID != 1 || def.UserID != 77 {
+		t.Fatalf("default account = %#v, want original account 1 with fetched user 77", def)
 	}
 }

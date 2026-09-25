@@ -32,9 +32,7 @@ func TestHCDefaultSavesPortalAndLocale(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
@@ -50,11 +48,12 @@ func TestHCDefaultSavesPortalAndLocale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
 	}
-	if loaded.HelpCenter.DefaultPortalSlug != "chatwoot-help-center" {
-		t.Fatalf("DefaultPortalSlug = %q", loaded.HelpCenter.DefaultPortalSlug)
+	hc := loaded.DefaultAccount().HelpCenter
+	if hc.DefaultPortalSlug != "chatwoot-help-center" {
+		t.Fatalf("DefaultPortalSlug = %q", hc.DefaultPortalSlug)
 	}
-	if loaded.HelpCenter.DefaultLocale != "en" {
-		t.Fatalf("DefaultLocale = %q", loaded.HelpCenter.DefaultLocale)
+	if hc.DefaultLocale != "en" {
+		t.Fatalf("DefaultLocale = %q", hc.DefaultLocale)
 	}
 	if !strings.Contains(out.String(), "Default help center set to chatwoot-help-center (en)") {
 		t.Fatalf("unexpected output: %s", out.String())
@@ -85,9 +84,7 @@ func TestHCsListsHelpCenters(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	if err := config.Save(&config.Config{BaseURL: server.URL, AccountID: 1}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
@@ -108,20 +105,17 @@ func TestHCsListsHelpCenters(t *testing.T) {
 func TestHCDefaultShowsAndClearsDefault(t *testing.T) {
 	setupTestEnv(t)
 
-	cfg := &config.Config{
-		BaseURL:   "https://example.test",
-		AccountID: 1,
+	cfg := saveTestConfig(t, config.Account{
+		BaseURL: "https://example.test",
+		ID:      1,
 		HelpCenter: config.HelpCenterConfig{
 			DefaultPortalSlug: "chatwoot-help-center",
 			DefaultLocale:     "en",
 		},
-	}
-	if err := config.Save(cfg); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	})
 
 	var showOut bytes.Buffer
-	showApp := &App{Config: cfg, Printer: testPrinter(&showOut)}
+	showApp := &App{Config: cfg, Account: cfg.DefaultAccount(), Printer: testPrinter(&showOut)}
 	if err := (&HCDefaultCmd{}).Run(showApp); err != nil {
 		t.Fatalf("show Run: %v", err)
 	}
@@ -130,7 +124,7 @@ func TestHCDefaultShowsAndClearsDefault(t *testing.T) {
 	}
 
 	var clearOut bytes.Buffer
-	clearApp := &App{Config: cfg, Printer: testPrinter(&clearOut)}
+	clearApp := &App{Config: cfg, Account: cfg.DefaultAccount(), Printer: testPrinter(&clearOut)}
 	if err := (&HCDefaultCmd{Clear: true}).Run(clearApp); err != nil {
 		t.Fatalf("clear Run: %v", err)
 	}
@@ -139,8 +133,8 @@ func TestHCDefaultShowsAndClearsDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
 	}
-	if loaded.HelpCenter.DefaultPortalSlug != "" || loaded.HelpCenter.DefaultLocale != "" {
-		t.Fatalf("help center default was not cleared: %#v", loaded.HelpCenter)
+	if hc := loaded.DefaultAccount().HelpCenter; hc.DefaultPortalSlug != "" || hc.DefaultLocale != "" {
+		t.Fatalf("help center default was not cleared: %#v", hc)
 	}
 }
 
@@ -167,16 +161,14 @@ func TestHCArticlesRendersTextTable(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	if err := config.Save(&config.Config{
-		BaseURL:   server.URL,
-		AccountID: 1,
+	saveTestConfig(t, config.Account{
+		BaseURL: server.URL,
+		ID:      1,
 		HelpCenter: config.HelpCenterConfig{
 			DefaultPortalSlug: "chatwoot-help-center",
 			DefaultLocale:     "en",
 		},
-	}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	})
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
@@ -216,16 +208,14 @@ func TestHCArticlesUsesConfiguredDefaults(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	if err := config.Save(&config.Config{
-		BaseURL:   server.URL,
-		AccountID: 1,
+	saveTestConfig(t, config.Account{
+		BaseURL: server.URL,
+		ID:      1,
 		HelpCenter: config.HelpCenterConfig{
 			DefaultPortalSlug: "chatwoot-help-center",
 			DefaultLocale:     "en",
 		},
-	}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	})
 	app, err := NewApp(&CLI{Output: "json"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
@@ -268,16 +258,14 @@ func TestHCArticlesOverridesConfiguredDefaults(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	if err := config.Save(&config.Config{
-		BaseURL:   server.URL,
-		AccountID: 1,
+	saveTestConfig(t, config.Account{
+		BaseURL: server.URL,
+		ID:      1,
 		HelpCenter: config.HelpCenterConfig{
 			DefaultPortalSlug: "chatwoot-help-center",
 			DefaultLocale:     "en",
 		},
-	}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	})
 	app, err := NewApp(&CLI{Output: "text"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
@@ -308,16 +296,14 @@ func TestHCArticleUsesConfiguredPortal(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	if err := config.Save(&config.Config{
-		BaseURL:   server.URL,
-		AccountID: 1,
+	saveTestConfig(t, config.Account{
+		BaseURL: server.URL,
+		ID:      1,
 		HelpCenter: config.HelpCenterConfig{
 			DefaultPortalSlug: "chatwoot-help-center",
 			DefaultLocale:     "en",
 		},
-	}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	})
 	app, err := NewApp(&CLI{Output: "json"}, false, "test")
 	if err != nil {
 		t.Fatalf("NewApp: %v", err)
@@ -333,6 +319,7 @@ func TestHCArticlesErrorsWithoutDefaultPortal(t *testing.T) {
 	var out bytes.Buffer
 	err := (&HCArticlesCmd{}).Run(&App{
 		Config:  &config.Config{},
+		Account: &config.Account{},
 		Printer: testPrinter(&out),
 	})
 	if err == nil {

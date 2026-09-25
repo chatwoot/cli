@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chatwoot/cli/internal/config"
 	"github.com/chatwoot/cli/internal/lock"
 	"github.com/chatwoot/cli/internal/output"
 	"github.com/chatwoot/cli/internal/sdk"
@@ -480,17 +479,14 @@ func resolveAgent(app *App, ref string) (int, error) {
 		return 0, fmt.Errorf("agent reference required")
 	}
 	if strings.EqualFold(ref, "me") {
-		if app.Config != nil && app.Config.UserID != 0 {
-			return app.Config.UserID, nil
+		if app.Account != nil && app.Account.UserID != 0 {
+			return app.Account.UserID, nil
 		}
 		profile, err := app.Client.Profile().Get()
 		if err != nil {
 			return 0, fmt.Errorf("cannot resolve 'me': %w", err)
 		}
-		if app.Config != nil {
-			app.Config.UserID = profile.ID
-			_ = config.Save(app.Config)
-		}
+		app.rememberUserID(profile.ID)
 		return profile.ID, nil
 	}
 	if id, err := strconv.Atoi(ref); err == nil {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -38,10 +39,7 @@ func setupAuthStatusEnv(t *testing.T, profileBody string) func() {
 		_, _ = w.Write([]byte(profileBody))
 	}))
 
-	cfg := &config.Config{BaseURL: server.URL, AccountID: 1}
-	if err := config.Save(cfg); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
 	t.Setenv(config.APIKeyEnv, "test-token")
 
 	return server.Close
@@ -65,13 +63,10 @@ func setupAuthStatusKeyring(t *testing.T, profileBody string) func() {
 		_, _ = w.Write([]byte(profileBody))
 	}))
 
-	cfg := &config.Config{BaseURL: server.URL, AccountID: 1}
-	if err := config.Save(cfg); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
-	if err := config.SaveAPIKey(cfg, "test-token"); err != nil {
-		t.Fatalf("config.SaveAPIKey: %v", err)
-	}
+	// An account saved before its user ID was known, authenticated by the
+	// keyring entry written by earlier releases.
+	saveTestConfig(t, config.Account{BaseURL: server.URL, ID: 1})
+	seedV1Keyring(t, server.URL, 1, "test-token")
 
 	return server.Close
 }
@@ -203,7 +198,7 @@ func TestAuthLogoutRemovesKeyringTokenWithoutConfig(t *testing.T) {
 	// Seed the token through the production path so it lands under whichever
 	// keyring service the active build profile uses (prod vs dev), without
 	// writing config.yaml — this exercises logout with no config present.
-	seed := &config.Config{BaseURL: "https://app.chatwoot.com", AccountID: 1}
+	seed := &config.Account{BaseURL: "https://app.chatwoot.com", ID: 1, UserID: 5}
 	if err := config.SaveAPIKey(seed, "stale-token"); err != nil {
 		t.Fatalf("SaveAPIKey: %v", err)
 	}
@@ -231,8 +226,8 @@ func TestAuthStatusSelfHealsCachedUserID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load (pre): %v", err)
 	}
-	if pre.UserID != 0 {
-		t.Fatalf("setup: expected UserID=0, got %d", pre.UserID)
+	if pre.DefaultAccount().UserID != 0 {
+		t.Fatalf("setup: expected UserID=0, got %d", pre.DefaultAccount().UserID)
 	}
 
 	_ = runAndCapture(t, (&AuthStatusCmd{}).Run)
@@ -241,8 +236,8 @@ func TestAuthStatusSelfHealsCachedUserID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load (post): %v", err)
 	}
-	if post.UserID != 99 {
-		t.Fatalf("expected UserID=99 cached after auth status, got %d", post.UserID)
+	if post.DefaultAccount().UserID != 99 {
+		t.Fatalf("expected UserID=99 cached after auth status, got %d", post.DefaultAccount().UserID)
 	}
 }
 
@@ -260,7 +255,7 @@ func TestAuthStatusDoesNotCacheUserIDFromEnvironmentToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load (pre): %v", err)
 	}
-	cfg.UserID = 42
+	cfg.DefaultAccount().UserID = 42
 	if err := config.Save(cfg); err != nil {
 		t.Fatalf("config.Save: %v", err)
 	}
@@ -271,8 +266,8 @@ func TestAuthStatusDoesNotCacheUserIDFromEnvironmentToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load (post): %v", err)
 	}
-	if post.UserID != 42 {
-		t.Fatalf("expected env-token auth status to preserve cached UserID=42, got %d", post.UserID)
+	if post.DefaultAccount().UserID != 42 {
+		t.Fatalf("expected env-token auth status to preserve cached UserID=42, got %d", post.DefaultAccount().UserID)
 	}
 }
 
@@ -316,14 +311,32 @@ func TestAuthLoginVerifiesAccountAccess(t *testing.T) {
 		if err != nil || cfg == nil {
 			t.Fatalf("config not saved: cfg=%#v err=%v", cfg, err)
 		}
-		if cfg.AccountID != 7 || cfg.UserID != 5 {
-			t.Fatalf("saved cfg = %#v, want AccountID 7, UserID 5", cfg)
+		def := cfg.DefaultAccount()
+		if def == nil || def.Name != "acme" || def.ID != 7 || def.UserID != 5 {
+			t.Fatalf("default account = %#v, want acme #7 for user 5", def)
 		}
-		apiKey, source, err := config.ResolveAPIKey(cfg)
+		// Every account the token can see is registered, not just the one entered.
+		if beta := cfg.Find("beta"); beta == nil || beta.ID != 9 {
+			t.Fatalf("beta not registered: %#v", cfg.Accounts)
+		}
+		apiKey, source, err := config.ResolveAPIKey(def)
 		if err != nil || apiKey != "token" || source != config.CredentialSourceKeyring {
 			t.Fatalf("ResolveAPIKey = (%q, %v, %v), want token/keyring", apiKey, source, err)
 		}
 	})
+}
+
+// seedV1Keyring writes the keyring entry format used before multi-account
+// support, as an upgrading user would have it.
+func seedV1Keyring(t *testing.T, baseURL string, accountID int, apiKey string) {
+	t.Helper()
+	data, err := json.Marshal(map[string]any{"base_url": baseURL, "account_id": accountID, "api_key": apiKey})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if err := keyring.Set("chatwoot-cli", "api-key", string(data)); err != nil {
+		t.Fatalf("keyring.Set: %v", err)
+	}
 }
 
 // isolateAuthEnv gives a test its own HOME + mocked keyring and clears the
