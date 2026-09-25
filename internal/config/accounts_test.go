@@ -238,3 +238,41 @@ func TestFindByID(t *testing.T) {
 		t.Fatalf("FindByID for a missing account = %#v, want nil", got)
 	}
 }
+
+func TestNormalizeBaseURLCanonicalizesSchemeAndHost(t *testing.T) {
+	cases := map[string]string{
+		"https://App.Chatwoot.com/":     "https://app.chatwoot.com",
+		" HTTPS://Example.COM:8443 ":    "https://example.com:8443",
+		"https://Example.com/Chatwoot/": "https://example.com/Chatwoot", // paths keep their case
+		"https://app.chatwoot.com":      "https://app.chatwoot.com",
+		"":                              "",
+	}
+	for in, want := range cases {
+		if got := normalizeBaseURL(in); got != want {
+			t.Errorf("normalizeBaseURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// Without a membership list (older Chatwoot), a login only knows the one
+// account the user typed; that must not remove the others.
+func TestMergeAccountsKeepsOtherAccounts(t *testing.T) {
+	cfg := &Config{}
+	cfg.MergeAccounts(appURL, 7, "Shivam", []Membership{{ID: 1}})
+	cfg.Default = "account-1"
+	cfg.Find("account-1").HelpCenter = HelpCenterConfig{DefaultPortalSlug: "docs"}
+
+	added := cfg.MergeAccounts(appURL, 7, "Shivam", []Membership{{ID: 2}})
+	if want := []string{"account-2"}; !reflect.DeepEqual(names(added), want) {
+		t.Fatalf("added = %v, want %v", names(added), want)
+	}
+	first := cfg.Find("account-1")
+	if first == nil || first.HelpCenter.DefaultPortalSlug != "docs" || cfg.Default != "account-1" {
+		t.Fatalf("merging a second account disturbed the first: %#v (default %q)", cfg.Accounts, cfg.Default)
+	}
+
+	// Merging an account that already exists adds nothing.
+	if added := cfg.MergeAccounts(appURL, 7, "Shivam", []Membership{{ID: 2}}); len(added) != 0 {
+		t.Fatalf("re-merge added %v", names(added))
+	}
+}

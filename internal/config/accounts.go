@@ -95,6 +95,33 @@ func (c *Config) SyncAccounts(baseURL string, userID int, userName string, membe
 	return added, removed
 }
 
+// MergeAccounts registers memberships for one login without removing any
+// account. It is for logins whose membership list is incomplete, such as the
+// single account typed in on Chatwoot versions whose profile omits the list.
+func (c *Config) MergeAccounts(baseURL string, userID int, userName string, memberships []Membership) (added []Account) {
+	baseURL = normalizeBaseURL(baseURL)
+	for _, m := range memberships {
+		if acct := c.FindByID(baseURL, userID, m.ID); acct != nil {
+			acct.UserName = userName
+			if m.Name != "" {
+				acct.AccountName = m.Name
+			}
+			continue
+		}
+		acct := Account{
+			Name:        c.uniqueName(slugAccountName(m.Name, m.ID), baseURL, userName, m.ID),
+			BaseURL:     baseURL,
+			ID:          m.ID,
+			UserID:      userID,
+			UserName:    userName,
+			AccountName: m.Name,
+		}
+		c.Accounts = append(c.Accounts, acct)
+		added = append(added, acct)
+	}
+	return added
+}
+
 // uniqueName picks a free name for a new account. A clash with another
 // instance's account adds this instance's host label (chatwoot-staging); a
 // clash on the same instance means a second user, so it adds the user's name
@@ -250,6 +277,13 @@ func hostLabel(baseURL string) string {
 	return host
 }
 
+// normalizeBaseURL is the canonical form every base URL is stored and compared
+// in: no trailing slash, lowercase scheme and host (paths keep their case).
 func normalizeBaseURL(baseURL string) string {
-	return strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	u, err := url.Parse(baseURL)
+	if err != nil || u.Host == "" {
+		return baseURL
+	}
+	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host) + u.EscapedPath()
 }

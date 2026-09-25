@@ -500,3 +500,33 @@ func runLogin(t *testing.T, cmd *AuthLoginCmd, stdin string, run ...func() error
 	out, _ := os.ReadFile(stdout.Name())
 	return string(out), runErr
 }
+
+// On Chatwoot versions whose profile has no accounts list, each login adds the
+// account the user typed without removing the ones added before.
+func TestAuthLoginWithoutAccountsListKeepsEarlierAccounts(t *testing.T) {
+	server := loginProfileServer(t, `{"id":5,"name":"Eve"}`)
+	defer server.Close()
+	isolateAuthEnv(t)
+
+	if _, err := runLogin(t, &AuthLoginCmd{URL: server.URL}, "token\n7\n"); err != nil {
+		t.Fatalf("first login: %v", err)
+	}
+	cfg, _ := config.Load()
+	first := cfg.DefaultAccount()
+	first.HelpCenter = config.HelpCenterConfig{DefaultPortalSlug: "docs"}
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("config.Save: %v", err)
+	}
+
+	if _, err := runLogin(t, &AuthLoginCmd{URL: server.URL}, "token\n9\n"); err != nil {
+		t.Fatalf("second login: %v", err)
+	}
+	cfg, _ = config.Load()
+	if cfg.FindByID(server.URL, 5, 7) == nil || cfg.FindByID(server.URL, 5, 9) == nil {
+		t.Fatalf("accounts = %#v, want both 7 and 9", cfg.Accounts)
+	}
+	def := cfg.DefaultAccount()
+	if def == nil || def.ID != 7 || def.HelpCenter.DefaultPortalSlug != "docs" {
+		t.Fatalf("default = %#v, want account 7 with its help center kept", def)
+	}
+}

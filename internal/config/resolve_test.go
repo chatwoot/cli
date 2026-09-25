@@ -121,3 +121,29 @@ func TestResolveLinkSelector(t *testing.T) {
 		t.Fatalf("error %q should say how to log in", err)
 	}
 }
+
+// A v1 config written with an uppercase host must still match lowercase links.
+func TestResolveLinkToMigratedMixedCaseHost(t *testing.T) {
+	cfg := migrateV1(legacyConfig{BaseURL: "https://App.Chatwoot.com/", AccountID: 1, UserID: 7})
+	got, err := cfg.Resolve("https://app.chatwoot.com/app/accounts/1/conversations/5")
+	if err != nil || got.ID != 1 {
+		t.Fatalf("Resolve(link) = (%#v, %v), want the migrated account", got, err)
+	}
+	if got.BaseURL != "https://app.chatwoot.com" {
+		t.Fatalf("migrated BaseURL = %q, want canonical lowercase host", got.BaseURL)
+	}
+}
+
+// Accounts saved with a non-canonical host (e.g. by a pre-release build) are
+// canonicalized on load.
+func TestLoadCanonicalizesSavedBaseURLs(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	writeConfigFile(t, "version: 2\ndefault: a\naccounts:\n  - {name: a, base_url: \"https://App.Chatwoot.com/\", id: 1, user_id: 7}\n")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := cfg.Find("a").BaseURL; got != "https://app.chatwoot.com" {
+		t.Fatalf("BaseURL = %q, want canonical", got)
+	}
+}

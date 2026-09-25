@@ -278,3 +278,14 @@ func TestDeleteAPIKeysLeavesOtherProfileServiceIntact(t *testing.T) {
 		t.Fatalf("other profile token = (%q, %v), want other-profile-token", got, err)
 	}
 }
+
+// The pre-upgrade keyring entry kept the host as the user typed it.
+func TestResolveAPIKeyMatchesV1CredentialRegardlessOfHostCase(t *testing.T) {
+	initMockKeyring(t)
+	seedV1Credential(t, "https://App.Chatwoot.com/", 1, "v1-token")
+
+	apiKey, _, err := ResolveAPIKey(&Account{BaseURL: "https://app.chatwoot.com", ID: 1, UserID: 7})
+	if err != nil || apiKey != "v1-token" {
+		t.Fatalf("ResolveAPIKey() = (%q, %v), want v1-token", apiKey, err)
+	}
+}

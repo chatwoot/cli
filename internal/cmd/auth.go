@@ -73,8 +73,10 @@ func (c *AuthLoginCmd) Run(app *App) error {
 	}
 
 	memberships := profileMemberships(profile)
-	if len(memberships) == 0 {
-		// Older Chatwoot versions omit the accounts list; ask for the account.
+	// Older Chatwoot versions omit the accounts list; ask for the account. That
+	// one ID is not the full membership list, so it is merged, not synced.
+	complete := len(memberships) > 0
+	if !complete {
 		accountID := linkAccount
 		if accountID == 0 {
 			fmt.Print("Account ID: ")
@@ -95,7 +97,11 @@ func (c *AuthLoginCmd) Run(app *App) error {
 	}
 	otherLogin := len(cfg.UserIDs(baseURL)) > 0 && !slices.Contains(cfg.UserIDs(baseURL), profile.ID)
 	userName := output.SanitizeText(profile.Name)
-	cfg.SyncAccounts(baseURL, profile.ID, userName, memberships)
+	if complete {
+		cfg.SyncAccounts(baseURL, profile.ID, userName, memberships)
+	} else {
+		cfg.MergeAccounts(baseURL, profile.ID, userName, memberships)
+	}
 
 	var mine []*config.Account
 	for _, m := range memberships {

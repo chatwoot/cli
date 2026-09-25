@@ -108,6 +108,9 @@ func parse(data []byte) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
+	for i := range cfg.Accounts {
+		cfg.Accounts[i].BaseURL = normalizeBaseURL(cfg.Accounts[i].BaseURL)
+	}
 	return &cfg, nil
 }
 
