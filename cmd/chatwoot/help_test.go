@@ -111,7 +111,7 @@ func TestCommandHelpHasExamples(t *testing.T) {
 		"contacts":    {"Examples:", "--search"},
 		"accounts":    {"Examples:", "chatwoot accounts --refresh"},
 		"use":         {"Examples:", "CHATWOOT_ACCOUNT"},
-		"auth login":  {"Examples:", "chatwoot auth login staging.chatwoot.com"},
+		"auth login":  {"Examples:", "chatwoot auth login staging.chatwoot.com", "Older Chatwoot versions"},
 		"auth logout": {"Examples:", "chatwoot auth logout staging.chatwoot.com"},
 		"hc articles": {"Examples:", "--query"},
 		"api":         {"Examples:", "chatwoot api /conversations/123"},

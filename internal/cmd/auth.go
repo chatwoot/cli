@@ -16,7 +16,7 @@ import (
 )
 
 type AuthCmd struct {
-	Login  AuthLoginCmd  `cmd:"" help:"Log in to a Chatwoot instance. All your accounts there are added."`
+	Login  AuthLoginCmd  `cmd:"" help:"Log in to a Chatwoot instance and add your accounts there."`
 	Logout AuthLogoutCmd `cmd:"" help:"Log out of every instance, or just one."`
 	Status AuthStatusCmd `cmd:"" help:"Show who you're logged in as, and which instance and account."`
 }
@@ -35,8 +35,12 @@ func (c *AuthLoginCmd) Help() string {
 	return `You'll be asked for an access token. Find it in Chatwoot under Profile
 Settings, then Access Token. It's saved in your system keychain.
 
-Each account gets a short name, like acme. See them with 'chatwoot accounts'.
-Log in again to add another instance, like staging.
+Every account you belong to is added, each with a short name like acme. See
+them with 'chatwoot accounts'. To add another instance, like staging, log in
+again.
+
+Older Chatwoot versions don't list your accounts. There you're asked for an
+account ID; log in again with another ID to add more.
 
 Examples:
   chatwoot auth login                         Asks for the address

@@ -29,8 +29,7 @@ type AccountsListCmd struct {
 }
 
 func (c *AccountsCmd) Help() string {
-	return `Log in once per Chatwoot instance and all your accounts there show up here.
-The one marked * is your default.
+	return `Accounts show up here when you log in. The one marked * is your default.
 
 Examples:
   chatwoot accounts                                List your accounts
