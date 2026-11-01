@@ -5,7 +5,7 @@ go 1.26.8
 require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/getkin/kin-openapi v0.149.0
-	github.com/jotaen/kong-completion v0.0.14
+	github.com/jotaen/kong-completion v0.0.15
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.45.0
